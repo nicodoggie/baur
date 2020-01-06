@@ -1,5 +1,7 @@
 package command
 
+/*
+
 import (
 	"fmt"
 	"os"
@@ -58,7 +60,7 @@ The following Environment Variables are supported:
 	util.ColoredBuildStatus(baur.BuildStatusPending),
 	util.ColoredBuildStatus(baur.BuildStatusInputsUndefined),
 
-	util.Highlight(envVarPSQLURL),
+	util.Highlight(util.EnvVarPSQLURL),
 
 	util.Highlight("AWS_REGION"),
 	util.Highlight("AWS_ACCESS_KEY_ID"),
@@ -283,6 +285,7 @@ func createBuildJobs(apps []*baur.App) []*build.Job {
 
 func startBGUploader(outputCnt int, uploadChan chan *scheduler.Result) scheduler.Manager {
 	var dockerUploader *docker.Client
+
 	s3Uploader, err := s3.NewClient(log.StdLogger)
 	if err != nil {
 		log.Fatalln(err.Error())
@@ -417,127 +420,4 @@ func buildRun(cmd *cobra.Command, args []string) {
 	var uploadWatchFin chan struct{}
 	var uploader scheduler.Manager
 
-	repo := MustFindRepository()
-
-	if !buildSkipUpload || !buildForce {
-		store = MustGetPostgresClt(repo)
-	}
-
-	startTs := time.Now()
-
-	apps = mustArgToApps(repo, args)
-	baur.SortAppsByName(apps)
-
-	fmt.Printf("Evaluating build status of applications:\n")
-	if buildForce {
-		apps = appsWithBuildCommand(apps)
-	} else {
-		apps = pendingBuilds(store, apps)
-	}
-
-	fmt.Println()
-	fmt.Printf("Building applications with build status: %s\n",
-		util.ColoredBuildStatus(baur.BuildStatusPending))
-
-	if buildSkipUpload {
-		fmt.Println("Outputs are not uploaded.")
-	}
-
-	if len(apps) == 0 {
-		term.PrintSep()
-
-		if !buildForce {
-			fmt.Println("If you want to rebuild applications pass '-f' to 'baur build'.")
-		}
-
-		os.Exit(0)
-	}
-
-	buildJobs := createBuildJobs(apps)
-	buildChan := make(chan *build.Result, len(apps))
-	builder := seq.New(buildJobs, buildChan)
-	outputCnt := outputCount(apps)
-
-	if !buildSkipUpload {
-		uploadChan := make(chan *scheduler.Result, outputCnt)
-		uploader = startBGUploader(outputCnt, uploadChan)
-		uploadWatchFin = make(chan struct{}, 1)
-		go waitPrintUploadStatus(uploader, uploadChan, uploadWatchFin, outputCnt)
-	}
-
-	term.PrintSep()
-
-	go builder.Start()
-
-	for status := range buildChan {
-		bud := status.Job.UserData.(*buildUserData)
-		app := bud.App
-
-		if status.Error != nil {
-			log.Fatalf("%s: build failed: %s", app.Name, status.Error)
-		}
-
-		if status.ExitCode != 0 {
-			log.Fatalf("%s: build failed: command (%q) exited with code %d "+
-				"Output: %s",
-				app.Name, status.Job.Command, status.ExitCode, status.Output)
-		}
-
-		fmt.Printf("%s: build successful (%.3fs)\n", app.Name, status.StopTs.Sub(status.StartTs).Seconds())
-		resultAddBuildResult(bud, status)
-
-		for _, ar := range app.Outputs {
-			if !ar.Exists() {
-				log.Fatalf("%s: build output %q did not exist after build",
-					app, ar)
-			}
-
-			if !buildSkipUpload {
-				uj, err := ar.UploadJob()
-				if err != nil {
-					log.Fatalf("%s: could not get upload job for build output %s: %s",
-						app, ar, err)
-				}
-
-				uj.SetUserData(&uploadUserData{
-					App:    app,
-					Output: ar,
-				})
-
-				uploader.Add(uj)
-
-			}
-			d, err := ar.Digest()
-			if err != nil {
-				log.Fatalf("%s: calculating input digest of %s failed: %s",
-					app.Name, ar, err)
-			}
-
-			fmt.Printf("%s: created %s (%s)\n", app.Name, ar, d)
-		}
-
-	}
-
-	if !buildSkipUpload && outputCnt > 0 {
-		fmt.Println("waiting for uploads to finish...")
-		<-uploadWatchFin
-	}
-
-	term.PrintSep()
-	fmt.Printf("finished in %ss\n", durationToStrSeconds(time.Since(startTs)))
-}
-
-func mustGetBuildStatus(app *baur.App, storage storage.Storer) (baur.BuildStatus, *storage.BuildWithDuration, string) {
-	var strBuildID string
-
-	status, build, err := baur.GetBuildStatus(storage, app)
-	if err != nil {
-		log.Fatalf("%s: %s", app.Name, err)
-	}
-
-	if build != nil {
-		strBuildID = fmt.Sprint(build.ID)
-	}
-
-	return status, build, strBuildID
-}
+*/

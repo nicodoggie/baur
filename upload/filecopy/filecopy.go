@@ -1,7 +1,9 @@
 package filecopy
 
 import (
+	"context"
 	"io"
+	"net/url"
 	"os"
 	"path"
 
@@ -62,8 +64,9 @@ func copyFile(src, dst string) error {
 // If the destination directory does not exist, it is created.
 // If the destination path exist and is not a regular file an error is returned.
 // If it exist and is a file, the file is overwritten if it's not the same.
-func (c *Client) Upload(src string, dst string) (string, error) {
-	destDir := path.Dir(dst)
+func (c *Client) Upload(_ context.Context, src string, dest *url.URL) (string, error) {
+	fpath := dest.Path
+	destDir := path.Dir(fpath)
 
 	isDir, err := fs.IsDir(destDir)
 	if err != nil {
@@ -83,30 +86,34 @@ func (c *Client) Upload(src string, dst string) (string, error) {
 		}
 	}
 
-	regFile, err := fs.IsRegularFile(dst)
+	regFile, err := fs.IsRegularFile(fpath)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return "", err
 		}
 
-		return dst, copyFile(src, dst)
+		return fpath, copyFile(src, fpath)
 	}
 
 	if !regFile {
-		return "", errors.Wrapf(err, "'%s' exist but is not a regular file", dst)
+		return "", errors.Wrapf(err, "'%s' exist but is not a regular file", fpath)
 	}
 
-	sameFile, err := fs.SameFile(src, dst)
+	sameFile, err := fs.SameFile(src, fpath)
 	if err != nil {
 		return "", err
 	}
 
 	if sameFile {
-		c.debugLogFn("filecopy: '%s' already exist and is the same then '%s'", dst, src)
-		return dst, nil
+		c.debugLogFn("filecopy: '%s' already exist and is the same then '%s'", fpath, src)
+		return fpath, nil
 	}
 
-	c.debugLogFn("filecopy: '%s' already exist, overwriting file", dst)
+	c.debugLogFn("filecopy: '%s' already exist, overwriting file", fpath)
 
-	return dst, copyFile(src, dst)
+	return fpath, copyFile(src, fpath)
+}
+
+func (c *Client) URIScheme() string {
+	return "file"
 }

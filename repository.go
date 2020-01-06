@@ -188,3 +188,7 @@ func (r *Repository) GitWorkTreeIsDirty() (bool, error) {
 func (r *Repository) Path() string {
 	return r.path
 }
+
+func (r *Repository) Config() *cfg.Repository {
+	return r.cfg
+}

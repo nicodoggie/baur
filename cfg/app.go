@@ -286,7 +286,7 @@ func (t *Task) Validate() error {
 	return nil
 }
 
-func (t *Task) Merge(includeDB IncludeDB) error {
+func (t *Task) Merge(includeDB *IncludeDB) error {
 	for _, includeID := range t.Includes {
 		if include, exist := includeDB.Inputs[includeID]; exist {
 			t.Input.Merge(include.Input)
@@ -318,6 +318,12 @@ func (a *App) Merge(includedb *IncludeDB) error {
 
 		// TODO: store the repository relative cfg path in the include somehow
 		//task.Input.Files.Paths = append(task.Input.Files.Paths, include.RelCfgPath)
+	}
+
+	for _, task := range a.Tasks {
+		if err := task.Merge(includedb); err != nil {
+			return err
+		}
 	}
 
 	return nil

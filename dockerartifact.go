@@ -7,7 +7,6 @@ import (
 
 	"github.com/simplesurance/baur/digest"
 	"github.com/simplesurance/baur/fs"
-	"github.com/simplesurance/baur/upload/scheduler"
 )
 
 // DockerArtifact is a docker container artifact
@@ -34,20 +33,6 @@ func (d *DockerArtifact) ImageID() (string, error) {
 	}
 
 	return id, nil
-}
-
-// UploadJob returns a upload.DockerJob for the artifact
-func (d *DockerArtifact) UploadJob() (scheduler.Job, error) {
-	id, err := d.ImageID()
-	if err != nil {
-		return nil, err
-	}
-
-	return &scheduler.DockerJob{
-		ImageID:    id,
-		Repository: d.Repository,
-		Tag:        d.Tag,
-	}, nil
 }
 
 // String returns the absolute path to the ImageID file

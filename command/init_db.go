@@ -22,7 +22,7 @@ Creates the baur tables in a PostgreSQL database.
 The Postgres URL is read from the repository configuration file.
 Alternatively the URL can be passed as argument or
 by setting the '%s' environment variable.`,
-	util.Highlight(envVarPSQLURL))
+	util.Highlight(util.EnvVarPSQLURL))
 
 var initDbCmd = &cobra.Command{
 	Use:     "db [POSTGRES-URL]",
@@ -51,7 +51,7 @@ func initDb(cmd *cobra.Command, args []string) {
 			log.Fatalln(err)
 		}
 
-		dbURL = repo.PSQLURL
+		dbURL = repo.Config().Database.PGSQLURL
 	} else {
 		dbURL = args[0]
 	}

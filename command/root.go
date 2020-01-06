@@ -8,7 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/simplesurance/baur/command/run"
 	"github.com/simplesurance/baur/exec"
 	"github.com/simplesurance/baur/log"
 	"github.com/simplesurance/baur/version"
@@ -55,7 +54,7 @@ func Execute() {
 	rootCmd.PersistentFlags().BoolVar(&cpuProfilingFlag, "cpu-prof", false,
 		fmt.Sprintf("enable cpu profiling, result is written to %q", defCPUProfFile))
 
-	rootCmd.AddCommand(run.New())
+	rootCmd.AddCommand(NewRunCommand())
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalln(err)

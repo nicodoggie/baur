@@ -3,6 +3,7 @@ package docker
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -173,8 +174,9 @@ func parseRepositoryURI(dest string) (server, repository, tag string, err error)
 
 // Upload tags and uploads an image into a docker registry repository
 // destURI format: [<server[:port]>/]<owner>/<repository>:<tag>
-func (c *Client) Upload(image, destURI string) (string, error) {
-	server, repository, tag, err := parseRepositoryURI(destURI)
+func (c *Client) Upload(ctx context.Context, image string, destURI *url.URL) (string, error) {
+	// TODO: use the URL type do not convert it always to string and then use it
+	server, repository, tag, err := parseRepositoryURI(destURI.String())
 	if err != nil {
 		return "", err
 	}
@@ -193,6 +195,7 @@ func (c *Client) Upload(image, destURI string) (string, error) {
 	outStream := bufio.NewWriter(&outBuf)
 
 	err = c.clt.PushImage(docker.PushImageOptions{
+		Context:      ctx,
 		Name:         repository,
 		Tag:          tag,
 		OutputStream: outStream,
@@ -212,7 +215,7 @@ func (c *Client) Upload(image, destURI string) (string, error) {
 		return "", err
 	}
 
-	return destURI, nil
+	return destURI.String(), nil
 }
 
 // Size returns the size of an image in Bytes
@@ -232,4 +235,8 @@ func (c *Client) Size(imageID string) (int64, error) {
 	}
 
 	return -1, os.ErrNotExist
+}
+
+func (c *Client) URIScheme() string {
+	return "docker"
 }

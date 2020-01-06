@@ -34,6 +34,7 @@ func LoadIncludes(includeDirectory ...string) (*IncludeDB, error) {
 // load reads and validates all *.toml files in the passed includeDirectories
 // as include config files and adds them to the database.
 // Directories are searched recursively and symlinks are followed.
+// Include directices in the loader files are not merged with their includes.
 func (db IncludeDB) load(includeDirectory ...string) error {
 	walkFunc := func(path string, _ os.FileInfo) error {
 		if filepath.Ext(path) != ".toml" {
@@ -61,14 +62,6 @@ func (db IncludeDB) load(includeDirectory ...string) error {
 		err := fs.WalkFiles(includeDir, fs.SymlinksAreErrors, walkFunc)
 		if err != nil {
 			return err
-		}
-	}
-
-	for _, tasks := range db.Tasks {
-		for _, task := range tasks.Tasks {
-			if err := task.Merge(db); err != nil {
-				return err
-			}
 		}
 	}
 

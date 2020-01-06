@@ -17,7 +17,6 @@ import (
 	"github.com/simplesurance/baur/resolve/gitpath"
 	"github.com/simplesurance/baur/resolve/glob"
 	"github.com/simplesurance/baur/resolve/gosource"
-	"github.com/simplesurance/baur/upload/scheduler"
 )
 
 // App represents an application
@@ -107,10 +106,6 @@ func (a *App) addFileOutputs(buildOutput *cfg.Output) error {
 				Path:      src,
 				DestFile:  destFile,
 				UploadURL: url,
-				uploadJob: &scheduler.S3Job{
-					DestURL:  url,
-					FilePath: src,
-				},
 			})
 		}
 
@@ -128,10 +123,6 @@ func (a *App) addFileOutputs(buildOutput *cfg.Output) error {
 				Path:      src,
 				DestFile:  dest,
 				UploadURL: dest,
-				uploadJob: &scheduler.FileCopyJob{
-					Src: src,
-					Dst: dest,
-				},
 			})
 
 		}
@@ -234,8 +225,8 @@ func (a *App) resolveGlobFileInputs() ([]string, error) {
 				globPath = filepath.Join(a.Path, globPath)
 			}
 
-			resolver := glob.NewResolver(globPath)
-			paths, err := resolver.Resolve()
+			resolver := &glob.Resolver{}
+			paths, err := resolver.Resolve(globPath)
 			if err != nil {
 				return nil, errors.Wrap(err, globPath)
 			}
@@ -275,8 +266,8 @@ func (a *App) resolveGitFileInputs() ([]string, error) {
 			paths = append(paths, relPath)
 		}
 
-		resolver := gitpath.NewResolver(a.Path, paths...)
-		paths, err := resolver.Resolve()
+		resolver := gitpath.Resolver{}
+		paths, err := resolver.Resolve(a.Path, paths...)
 		if err != nil {
 			return nil, err
 		}
@@ -309,8 +300,8 @@ func (a *App) resolveGoSrcInputs() ([]string, error) {
 			goSrcEnv = append(goSrcEnv, path.Clean(replaceROOTvar(val, a.Repository)))
 		}
 
-		resolver := gosource.NewResolver(log.Debugf, goSrcEnv, absGoSourcePaths...)
-		paths, err := resolver.Resolve()
+		resolver := gosource.NewResolver(log.Debugf)
+		paths, err := resolver.Resolve(goSrcEnv, absGoSourcePaths...)
 		if err != nil {
 			return nil, err
 		}

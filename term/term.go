@@ -1,10 +1,13 @@
 package term
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+)
 
 const separator = "------------------------------------------------------------------------------"
 
 // PrintSep prints a separator line
-func PrintSep() {
-	fmt.Println(separator)
+func PrintSep(w io.Writer) {
+	fmt.Fprintln(w, separator)
 }

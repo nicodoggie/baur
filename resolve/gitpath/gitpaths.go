@@ -10,25 +10,18 @@ import (
 
 // Resolver resolves one or more git glob paths in a git repository by running
 // git ls-files.
-// Glob path only resolve to files that are tracked in the repository.
-type Resolver struct {
-	path  string
-	globs []string
-}
+// Glob paths are only resolved to files that are tracked in the repository.
+type Resolver struct{}
 
-// NewResolver returns a resolver that resolves the passed git glob paths to absolute
-// paths
-func NewResolver(path string, globs ...string) *Resolver {
-	return &Resolver{
-		path:  path,
-		globs: globs,
+// Resolve resolves the glob paths to absolute file paths by calling git ls-files.
+// workingDir must be a directory that is part of a Git repository.
+// If a resolved file does not exist an error is returned.
+func (r *Resolver) Resolve(workingDir string, globs ...string) ([]string, error) {
+	if len(globs) == 0 {
+		return []string{}, nil
 	}
-}
 
-// Resolve the glob paths to absolute file paths by calling
-// git ls-files
-func (r *Resolver) Resolve() ([]string, error) {
-	out, err := git.LsFiles(r.path, r.globs...)
+	out, err := git.LsFiles(workingDir, globs...)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +30,7 @@ func (r *Resolver) Resolve() ([]string, error) {
 	res := make([]string, 0, len(relPaths))
 
 	for _, relPath := range relPaths {
-		absPath := filepath.Join(r.path, relPath)
+		absPath := filepath.Join(workingDir, relPath)
 
 		isFile, err := fs.IsFile(absPath)
 		if err != nil {

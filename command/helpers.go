@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/simplesurance/baur"
+	"github.com/simplesurance/baur/command/util"
 	"github.com/simplesurance/baur/format"
 	"github.com/simplesurance/baur/log"
 	"github.com/simplesurance/baur/storage"
@@ -77,29 +78,29 @@ func mustArgToApp(repo *baur.Repository, arg string) *baur.App {
 func getPostgresCltWithEnv(psqlURI string) (*postgres.Client, error) {
 	uri := psqlURI
 
-	if envURI := os.Getenv(envVarPSQLURL); len(envURI) != 0 {
+	if envURI := os.Getenv(util.EnvVarPSQLURL); len(envURI) != 0 {
 		log.Debugf("using postgresql connection URL from $%s environment variable",
-			envVarPSQLURL)
+			util.EnvVarPSQLURL)
 
 		uri = envURI
 	} else {
-		log.Debugf("environment variable $%s not set", envVarPSQLURL)
+		log.Debugf("environment variable $%s not set", util.EnvVarPSQLURL)
 	}
 
 	return postgres.New(uri)
 }
 
-//mustHavePSQLURI calls log.Fatalf if neither envVarPSQLURL nor the postgres_url
+//mustHavePSQLURI calls log.Fatalf if neither util.EnvVarPSQLURL nor the postgres_url
 //in the repository config is set
 func mustHavePSQLURI(r *baur.Repository) {
-	if len(r.PSQLURL) != 0 {
+	if len(r.Config().Database.PGSQLURL) != 0 {
 		return
 	}
 
-	if len(os.Getenv(envVarPSQLURL)) == 0 {
+	if len(os.Getenv(util.EnvVarPSQLURL)) == 0 {
 		log.Fatalf("PostgreSQL connection information is missing.\n"+
 			"- set postgres_url in your repository config or\n"+
-			"- set the $%s environment variable", envVarPSQLURL)
+			"- set the $%s environment variable", util.EnvVarPSQLURL)
 	}
 }
 
@@ -107,7 +108,7 @@ func mustHavePSQLURI(r *baur.Repository) {
 func MustGetPostgresClt(r *baur.Repository) *postgres.Client {
 	mustHavePSQLURI(r)
 
-	clt, err := getPostgresCltWithEnv(r.PSQLURL)
+	clt, err := getPostgresCltWithEnv(r.Config().Database.PGSQLURL)
 	if err != nil {
 		log.Fatalf("could not establish connection to postgreSQL db: %s", err)
 	}
@@ -157,7 +158,7 @@ func mustArgToApps(repo *baur.Repository, args []string) []*baur.App {
 				"- ensure the [Discover] section is correct in %s\n"+
 				"- ensure that you have >1 application dirs "+
 				"containing a %s file",
-				repo.CfgPath, baur.AppCfgFile)
+				repo.Config().FilePath(), baur.AppCfgFile)
 		}
 
 		return apps

@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -78,25 +79,16 @@ func verifyURL(u *url.URL) error {
 
 // Upload uploads a file to an s3 bucket, On success it returns the URL to the
 // file.
-func (c *Client) Upload(file string, dest string) (string, error) {
-	url, err := url.Parse(dest)
-	if err != nil {
-		return "", err
-	}
-
-	if err := verifyURL(url); err != nil {
-		return "", err
-	}
-
+func (c *Client) Upload(ctx context.Context, file string, dest *url.URL) (string, error) {
 	f, err := os.Open(file)
 	if err != nil {
 		return "", err
 	}
 	defer f.Close()
 
-	res, err := c.uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(bucketFromURL(url)),
-		Key:    aws.String(fileFromURL(url)),
+	res, err := c.uploader.UploadWithContext(ctx, &s3manager.UploadInput{
+		Bucket: aws.String(bucketFromURL(dest)),
+		Key:    aws.String(fileFromURL(dest)),
 		Body:   f,
 	})
 	if err != nil {
@@ -104,4 +96,8 @@ func (c *Client) Upload(file string, dest string) (string, error) {
 	}
 
 	return res.Location, err
+}
+
+func (c *Client) URIScheme() string {
+	return "s3"
 }
