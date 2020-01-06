@@ -22,6 +22,8 @@ type Repository struct {
 	Database      Database `toml:"Database"`
 	Discover      Discover `comment:"Application discovery settings"`
 	IncludeDirs   []string `toml:"include_dirs" comment:"Repository-relative paths to directories containing include files"`
+
+	filePath string
 }
 
 // Database contains database configuration
@@ -48,6 +50,8 @@ func RepositoryFromFile(cfgPath string) (*Repository, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	config.filePath = cfgPath
 
 	return &config, err
 }
@@ -76,6 +80,10 @@ func ExampleRepository() *Repository {
 // function returns an error if the file exist.
 func (r *Repository) ToFile(filepath string, overwrite bool) error {
 	return toFile(r, filepath, overwrite)
+}
+
+func (r *Repository) FilePath() string {
+	return r.filePath
 }
 
 // Validate validates a repository configuration
