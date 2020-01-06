@@ -6,8 +6,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/fatih/color"
-
 	"github.com/simplesurance/baur"
 	"github.com/simplesurance/baur/format"
 	"github.com/simplesurance/baur/log"
@@ -18,15 +16,6 @@ import (
 // envVarPSQLURL contains the name of an environment variable in that the
 // postgresql URI can be stored
 const envVarPSQLURL = "BAUR_POSTGRESQL_URL"
-
-var (
-	greenHighlight  = color.New(color.FgGreen).SprintFunc()
-	redHighlight    = color.New(color.FgRed).SprintFunc()
-	yellowHighlight = color.New(color.FgYellow).SprintFunc()
-	underline       = color.New(color.Underline).SprintFunc()
-	// highlight is a function that highlights parts of strings in the cli output
-	highlight = greenHighlight
-)
 
 func findRepository() (*baur.Repository, error) {
 	log.Debugln("searching for repository root...")
@@ -197,21 +186,6 @@ func mustWriteRow(fmt format.Formatter, row []interface{}) {
 	err := fmt.WriteRow(row)
 	if err != nil {
 		log.Fatalln(err)
-	}
-}
-
-func coloredBuildStatus(status baur.BuildStatus) string {
-	switch status {
-	case baur.BuildStatusInputsUndefined:
-		return yellowHighlight(status.String())
-	case baur.BuildStatusBuildCommandUndefined:
-		return yellowHighlight(status.String())
-	case baur.BuildStatusExist:
-		return greenHighlight(status.String())
-	case baur.BuildStatusPending:
-		return redHighlight(status.String())
-	default:
-		return status.String()
 	}
 }
 

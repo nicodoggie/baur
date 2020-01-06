@@ -10,6 +10,7 @@ import (
 
 	"github.com/simplesurance/baur"
 	"github.com/simplesurance/baur/command/flag"
+	"github.com/simplesurance/baur/command/util"
 	"github.com/simplesurance/baur/format"
 	"github.com/simplesurance/baur/format/csv"
 	"github.com/simplesurance/baur/format/table"
@@ -56,13 +57,13 @@ func init() {
 		"Only print build IDs")
 
 	lsBuildsCmd.Flags().VarP(lsBuildsConfig.sort, "sort", "s",
-		lsBuildsConfig.sort.Usage(highlight))
+		lsBuildsConfig.sort.Usage(util.Highlight))
 
 	lsBuildsCmd.Flags().VarP(&lsBuildsConfig.after, "after", "a",
-		fmt.Sprintf("Only show builds that were build after this datetime.\nFormat: %s", highlight(flag.DateTimeFormatDescr)))
+		fmt.Sprintf("Only show builds that were build after this datetime.\nFormat: %s", util.Highlight(flag.DateTimeFormatDescr)))
 
 	lsBuildsCmd.Flags().VarP(&lsBuildsConfig.before, "before", "b",
-		fmt.Sprintf("Only show builds that were build before this datetime.\nFormat: %s", highlight(flag.DateTimeFormatDescr)))
+		fmt.Sprintf("Only show builds that were build before this datetime.\nFormat: %s", util.Highlight(flag.DateTimeFormatDescr)))
 
 	lsCmd.AddCommand(lsBuildsCmd)
 }

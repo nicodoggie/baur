@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/simplesurance/baur/command/util"
 	"github.com/simplesurance/baur/log"
 	"github.com/simplesurance/baur/storage"
 	"github.com/simplesurance/baur/term"
@@ -91,12 +92,12 @@ func verify(cmd *cobra.Command, args []string) {
 		// filesystem of the image change with every build, we
 		// can't verify them  currently :/
 		if len(issues) == 0 || containsOnlyDockerIssues(issues) {
-			fmt.Printf("%s: %s\n", app.Name, greenHighlight("OK"))
+			fmt.Printf("%s: %s\n", app.Name, util.GreenHighlight("OK"))
 
 			continue
 		}
 
-		fmt.Printf("%s: %s\n", app.Name, redHighlight("Issues found"))
+		fmt.Printf("%s: %s\n", app.Name, util.RedHighlight("Issues found"))
 		for _, i := range issues {
 			issuesFound = true
 			fmt.Printf("- %s: build %d and %d have same inputs, but digest of output %s differs\n",
@@ -107,7 +108,7 @@ func verify(cmd *cobra.Command, args []string) {
 
 	if issuesFound {
 		term.PrintSep()
-		fmt.Println(redHighlight("Issues found"))
+		fmt.Println(util.RedHighlight("Issues found"))
 		fmt.Printf("\nPossible reasons:\n")
 		fmt.Println("- builds are not reproducible, ensure a builds with the same inputs produce outputs with the same digest")
 		fmt.Println("- specified inputs of the build are incomplete")
@@ -116,5 +117,5 @@ func verify(cmd *cobra.Command, args []string) {
 	}
 
 	term.PrintSep()
-	fmt.Println(greenHighlight("No issues found"))
+	fmt.Println(util.GreenHighlight("No issues found"))
 }

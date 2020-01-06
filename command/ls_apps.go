@@ -8,6 +8,7 @@ import (
 
 	"github.com/simplesurance/baur"
 	"github.com/simplesurance/baur/command/flag"
+	"github.com/simplesurance/baur/command/util"
 	"github.com/simplesurance/baur/format"
 	"github.com/simplesurance/baur/format/csv"
 	"github.com/simplesurance/baur/format/table"
@@ -56,7 +57,7 @@ func init() {
 		"Show absolute instead of relative paths")
 
 	lsAppsCmd.Flags().VarP(&lsAppsConfig.buildStatus, "build-status", "s",
-		lsAppsConfig.buildStatus.Usage(highlight))
+		lsAppsConfig.buildStatus.Usage(util.Highlight))
 
 	lsAppsConfig.fields = flag.NewFields([]string{
 		lsAppNameParam,
@@ -66,7 +67,7 @@ func init() {
 		lsAppGitCommitParam,
 	})
 	lsAppsCmd.Flags().VarP(lsAppsConfig.fields, "fields", "f",
-		lsAppsConfig.fields.Usage(highlight))
+		lsAppsConfig.fields.Usage(util.Highlight))
 
 	lsCmd.AddCommand(lsAppsCmd)
 }

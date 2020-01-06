@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/simplesurance/baur/command/util"
 	"github.com/spf13/cobra"
 )
 
@@ -25,10 +26,10 @@ Optional: %s
 
 Afterwards application configuration files can be created with the
 '%s' command.
-`, highlight(cmdInitRepo),
-	highlight(cmdInitDb),
-	highlight(cmdInitBashComp),
-	highlight(cmdInitApp))
+`, util.Highlight(cmdInitRepo),
+	util.Highlight(cmdInitDb),
+	util.Highlight(cmdInitBashComp),
+	util.Highlight(cmdInitApp))
 
 var initCmd = &cobra.Command{
 	Use:   "init",

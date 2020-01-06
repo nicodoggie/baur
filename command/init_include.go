@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/simplesurance/baur/cfg"
+	"github.com/simplesurance/baur/command/util"
 	"github.com/simplesurance/baur/log"
 )
 
@@ -49,5 +50,5 @@ func initInclude(cmd *cobra.Command, args []string) {
 	}
 
 	fmt.Printf("Include configuration file was written to %s\n",
-		highlight(filename))
+		util.Highlight(filename))
 }

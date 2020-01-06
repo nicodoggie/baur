@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/simplesurance/baur/command/util"
 	"github.com/simplesurance/baur/fs"
 	"github.com/simplesurance/baur/log"
 )
@@ -106,5 +107,5 @@ func bashComp(cmd *cobra.Command, args []string) {
 		log.Fatalln("closing file failed:", err.Error())
 	}
 
-	fmt.Printf("bash completion file written to %s\n", highlight(complFile))
+	fmt.Printf("bash completion file written to %s\n", util.Highlight(complFile))
 }

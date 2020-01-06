@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/simplesurance/baur"
+	"github.com/simplesurance/baur/command/util"
 	"github.com/simplesurance/baur/format"
 	"github.com/simplesurance/baur/format/csv"
 	"github.com/simplesurance/baur/format/table"
@@ -99,6 +100,6 @@ func lsInputs(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Fatalln("calculating total input digest failed:", err)
 		}
-		fmt.Printf("\nTotal Build Input Digest: %s\n", highlight(totalDigest.String()))
+		fmt.Printf("\nTotal Build Input Digest: %s\n", util.Highlight(totalDigest.String()))
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/simplesurance/baur"
 	"github.com/simplesurance/baur/build"
 	"github.com/simplesurance/baur/build/seq"
+	"github.com/simplesurance/baur/command/util"
 	"github.com/simplesurance/baur/digest"
 	"github.com/simplesurance/baur/digest/sha384"
 	"github.com/simplesurance/baur/log"
@@ -54,21 +55,21 @@ The following Environment Variables are supported:
     %s
     %s
 `,
-	coloredBuildStatus(baur.BuildStatusPending),
-	coloredBuildStatus(baur.BuildStatusInputsUndefined),
+	util.ColoredBuildStatus(baur.BuildStatusPending),
+	util.ColoredBuildStatus(baur.BuildStatusInputsUndefined),
 
-	highlight(envVarPSQLURL),
+	util.Highlight(envVarPSQLURL),
 
-	highlight("AWS_REGION"),
-	highlight("AWS_ACCESS_KEY_ID"),
-	highlight("AWS_SECRET_ACCESS_KEY"),
+	util.Highlight("AWS_REGION"),
+	util.Highlight("AWS_ACCESS_KEY_ID"),
+	util.Highlight("AWS_SECRET_ACCESS_KEY"),
 
-	highlight(dockerEnvUsernameVar),
-	highlight(dockerEnvPasswordVar),
-	highlight("DOCKER_HOST"),
-	highlight("DOCKER_API_VERSION"),
-	highlight("DOCKER_CERT_PATH"),
-	highlight("DOCKER_TLS_VERIFY"))
+	util.Highlight(dockerEnvUsernameVar),
+	util.Highlight(dockerEnvPasswordVar),
+	util.Highlight("DOCKER_HOST"),
+	util.Highlight("DOCKER_API_VERSION"),
+	util.Highlight("DOCKER_CERT_PATH"),
+	util.Highlight("DOCKER_TLS_VERIFY"))
 
 const buildExampleHelp = `
 build payment-service		build and upload the application with the name payment-service
@@ -371,12 +372,12 @@ func appsWithBuildCommand(apps []*baur.App) []*baur.App {
 	for _, app := range apps {
 		if len(app.BuildCmd) == 0 {
 			fmt.Printf("%-*s%s%s\n",
-				appNameColLen, app.Name, appColSep, coloredBuildStatus(baur.BuildStatusBuildCommandUndefined))
+				appNameColLen, app.Name, appColSep, util.ColoredBuildStatus(baur.BuildStatusBuildCommandUndefined))
 			continue
 		}
 
 		fmt.Printf("%-*s%s%s\n",
-			appNameColLen, app.Name, appColSep, coloredBuildStatus(baur.BuildStatusPending))
+			appNameColLen, app.Name, appColSep, util.ColoredBuildStatus(baur.BuildStatusPending))
 		res = append(res, app)
 	}
 
@@ -393,12 +394,12 @@ func pendingBuilds(storage storage.Storer, apps []*baur.App) []*baur.App {
 
 		if buildStatus == baur.BuildStatusExist {
 			fmt.Printf("%-*s%s%s (%s)\n",
-				appNameColLen, app.Name, appColSep, coloredBuildStatus(buildStatus), highlight(build.ID))
+				appNameColLen, app.Name, appColSep, util.ColoredBuildStatus(buildStatus), util.Highlight(build.ID))
 			continue
 		}
 
 		fmt.Printf("%-*s%s%s\n",
-			appNameColLen, app.Name, appColSep, coloredBuildStatus(buildStatus))
+			appNameColLen, app.Name, appColSep, util.ColoredBuildStatus(buildStatus))
 
 		if buildStatus == baur.BuildStatusBuildCommandUndefined {
 			continue
@@ -436,7 +437,7 @@ func buildRun(cmd *cobra.Command, args []string) {
 
 	fmt.Println()
 	fmt.Printf("Building applications with build status: %s\n",
-		coloredBuildStatus(baur.BuildStatusPending))
+		util.ColoredBuildStatus(baur.BuildStatusPending))
 
 	if buildSkipUpload {
 		fmt.Println("Outputs are not uploaded.")
