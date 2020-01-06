@@ -17,18 +17,24 @@ type IncludeDB struct {
 	Tasks   map[string]*TasksInclude
 }
 
-func NewIncludeDB() *IncludeDB {
-	return &IncludeDB{
+func LoadIncludes(includeDirectory ...string) (*IncludeDB, error) {
+	db := IncludeDB{
 		Inputs:  map[string]*InputInclude{},
 		Outputs: map[string]*OutputInclude{},
 		Tasks:   map[string]*TasksInclude{},
 	}
+
+	err := db.load(includeDirectory...)
+	if err != nil {
+		return nil, err
+	}
+	return &db, nil
 }
 
-// Load reads and validates all *.toml files in the passed includeDirectories
+// load reads and validates all *.toml files in the passed includeDirectories
 // as include config files and adds them to the database.
 // Directories are searched recursively and symlinks are followed.
-func (db IncludeDB) Load(includeDirectory ...string) error {
+func (db IncludeDB) load(includeDirectory ...string) error {
 	walkFunc := func(path string, _ os.FileInfo) error {
 		if filepath.Ext(path) != ".toml" {
 			return nil

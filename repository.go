@@ -75,8 +75,7 @@ func NewRepository(cfgPath string) (*Repository, error) {
 			"application_dirs parameter is invalid", cfgPath)
 	}
 
-	includeDB := cfg.NewIncludeDB()
-	err = includeDB.Load(fs.AbsPaths(r.Path, repoCfg.IncludeDirs)...)
+	includeDB, err := cfg.LoadIncludes(fs.AbsPaths(r.Path, repoCfg.IncludeDirs)...)
 	if err != nil {
 		return nil, errors.Wrap(err, "loading includes failed")
 	}
