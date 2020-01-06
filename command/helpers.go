@@ -13,10 +13,6 @@ import (
 	"github.com/simplesurance/baur/storage/postgres"
 )
 
-// envVarPSQLURL contains the name of an environment variable in that the
-// postgresql URI can be stored
-const envVarPSQLURL = "BAUR_POSTGRESQL_URL"
-
 func findRepository() (*baur.Repository, error) {
 	log.Debugln("searching for repository root...")
 

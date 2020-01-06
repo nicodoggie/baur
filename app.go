@@ -39,7 +39,7 @@ func replaceUUIDvar(in string) string {
 }
 
 func replaceROOTvar(in string, r *Repository) string {
-	return strings.Replace(in, "$ROOT", r.Path, -1)
+	return strings.Replace(in, "$ROOT", r.Path(), -1)
 }
 
 func replaceAppNameVar(in, appName string) string {
@@ -149,7 +149,7 @@ func (a *App) addCfgsToBuildInputs(appCfg *cfg.App) {
 
 // NewApp reads the configuration file and returns a new App
 func NewApp(repository *Repository, cfgPath string) (*App, error) {
-	appCfg, err := repository.AppLoader.Load(cfgPath)
+	appCfg, err := repository.appLoader.Load(cfgPath)
 	if err != nil {
 		return nil, errors.Wrapf(err,
 			"reading application config %s failed", cfgPath)
@@ -168,7 +168,7 @@ func NewApp(repository *Repository, cfgPath string) (*App, error) {
 	}
 
 	appAbsPath := path.Dir(cfgPath)
-	appRelPath, err := filepath.Rel(repository.Path, appAbsPath)
+	appRelPath, err := filepath.Rel(repository.Path(), appAbsPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "%s: resolving repository relative application path failed", appCfg.Name)
 	}
@@ -208,14 +208,14 @@ func (a *App) pathsToUniqFiles(paths []string) ([]*File, error) {
 		}
 		dedupMap[path] = struct{}{}
 
-		relPath, err := filepath.Rel(a.Repository.Path, path)
+		relPath, err := filepath.Rel(a.Repository.Path(), path)
 		if err != nil {
 			return nil, errors.Wrapf(err, "resolving relative path to '%s' from '%s' failed", path, a.Repository.Path)
 		}
 
 		// TODO: should resolving the relative path be done in
 		// Newfile() instead?
-		res = append(res, NewFile(a.Repository.Path, relPath))
+		res = append(res, NewFile(a.Repository.Path(), relPath))
 	}
 
 	return res, nil

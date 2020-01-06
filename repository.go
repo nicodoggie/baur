@@ -14,14 +14,12 @@ import (
 
 // Repository represents an repository containing applications
 type Repository struct {
-	Path               string
-	CfgPath            string
-	AppSearchDirs      []string
-	SearchDepth        int
+	path      string
+	cfg       *cfg.Repository
+	appLoader *cfg.AppLoader
+
 	gitCommitID        string
 	gitWorktreeIsDirty *bool
-	PSQLURL            string
-	AppLoader          cfg.AppLoader
 }
 
 // FindRepository searches for a repository config file. The search starts in
@@ -62,20 +60,20 @@ func NewRepository(cfgPath string) (*Repository, error) {
 	}
 
 	r := Repository{
-		CfgPath:       cfgPath,
-		Path:          path.Dir(cfgPath),
-		AppSearchDirs: fs.PathsJoin(path.Dir(cfgPath), repoCfg.Discover.Dirs),
-		SearchDepth:   repoCfg.Discover.SearchDepth,
-		PSQLURL:       repoCfg.Database.PGSQLURL,
+		path: path.Dir(repoCfg.FilePath()),
+		cfg:  repoCfg,
 	}
 
-	err = fs.DirsExist(r.AppSearchDirs...)
-	if err != nil {
-		return nil, errors.Wrapf(err, "validating repository config %q failed, "+
-			"application_dirs parameter is invalid", cfgPath)
-	}
+	/*
+		// TODO: remove the check or move it to somewhere else?
+		err = fs.DirsExist(r.AppSearchDirs...)
+		if err != nil {
+			return nil, errors.Wrapf(err, "validating repository config %q failed, "+
+				"application_dirs parameter is invalid", cfgPath)
+		}
+	*/
 
-	includeDB, err := cfg.LoadIncludes(fs.AbsPaths(r.Path, repoCfg.IncludeDirs)...)
+	includeDB, err := cfg.LoadIncludes(fs.AbsPaths(r.path, repoCfg.IncludeDirs)...)
 	if err != nil {
 		return nil, errors.Wrap(err, "loading includes failed")
 	}
@@ -83,7 +81,7 @@ func NewRepository(cfgPath string) (*Repository, error) {
 	// TODO: we should release the memory when it's not used anymore,
 	// either empty the db when it's not used anymore or store it somewhere
 	// else then in the Repository struct
-	r.AppLoader = cfg.AppLoader{IncludeDB: includeDB}
+	r.appLoader = &cfg.AppLoader{IncludeDB: includeDB}
 
 	return &r, nil
 }
@@ -93,8 +91,8 @@ func NewRepository(cfgPath string) (*Repository, error) {
 func (r *Repository) FindApps() ([]*App, error) {
 	var result []*App
 
-	for _, searchDir := range r.AppSearchDirs {
-		appsCfgPaths, err := fs.FindFilesInSubDir(searchDir, AppCfgFile, r.SearchDepth)
+	for _, searchDir := range fs.AbsPaths(r.path, r.cfg.Discover.Dirs) {
+		appsCfgPaths, err := fs.FindFilesInSubDir(searchDir, AppCfgFile, r.cfg.Discover.SearchDepth)
 		if err != nil {
 			return nil, errors.Wrap(err, "finding application configs failed")
 		}
@@ -128,8 +126,8 @@ func (r *Repository) AppByDir(appDir string) (*App, error) {
 // AppByName searches for an App with the given name in the repository and
 // returns it. If none is found os.ErrNotExist is returned.
 func (r *Repository) AppByName(name string) (*App, error) {
-	for _, searchDir := range r.AppSearchDirs {
-		appsCfgPaths, err := fs.FindFilesInSubDir(searchDir, AppCfgFile, r.SearchDepth)
+	for _, searchDir := range r.cfg.Discover.Dirs {
+		appsCfgPaths, err := fs.FindFilesInSubDir(searchDir, AppCfgFile, r.cfg.Discover.SearchDepth)
 		if err != nil {
 			return nil, errors.Wrap(err, "finding application failed")
 		}
@@ -139,6 +137,7 @@ func (r *Repository) AppByName(name string) (*App, error) {
 			if err != nil {
 				return nil, err
 			}
+
 			if a.Name == name {
 				return a, nil
 			}
@@ -154,7 +153,7 @@ func (r *Repository) GitCommitID() (string, error) {
 		return r.gitCommitID, nil
 	}
 
-	commit, err := git.CommitID(r.Path)
+	commit, err := git.CommitID(r.path)
 	if err != nil {
 		return "", errors.Wrap(err, "determining Git commit ID failed, "+
 			"ensure that the git command is in a directory in $PATH and "+
@@ -173,7 +172,7 @@ func (r *Repository) GitWorkTreeIsDirty() (bool, error) {
 		return *r.gitWorktreeIsDirty, nil
 	}
 
-	isDirty, err := git.WorkTreeIsDirty(r.Path)
+	isDirty, err := git.WorkTreeIsDirty(r.path)
 	if err != nil {
 		return false, errors.Wrap(err, "determining Git worktree state failed, "+
 			"ensure that the git command is in a directory in $PATH and "+
@@ -183,4 +182,9 @@ func (r *Repository) GitWorkTreeIsDirty() (bool, error) {
 	r.gitWorktreeIsDirty = &isDirty
 
 	return isDirty, nil
+}
+
+// Path returns the root path of the repository.
+func (r *Repository) Path() string {
+	return r.path
 }

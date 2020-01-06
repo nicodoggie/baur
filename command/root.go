@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/simplesurance/baur/command/run"
 	"github.com/simplesurance/baur/exec"
 	"github.com/simplesurance/baur/log"
 	"github.com/simplesurance/baur/version"
@@ -40,6 +41,7 @@ func initSb(_ *cobra.Command, _ []string) {
 			log.Fatalln(err)
 		}
 	}
+
 }
 
 // Execute parses commandline flags and execute their actions
@@ -52,6 +54,8 @@ func Execute() {
 	rootCmd.PersistentFlags().BoolVarP(&verboseFlag, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVar(&cpuProfilingFlag, "cpu-prof", false,
 		fmt.Sprintf("enable cpu profiling, result is written to %q", defCPUProfFile))
+
+	rootCmd.AddCommand(run.New())
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalln(err)
