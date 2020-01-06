@@ -261,8 +261,6 @@ func AbsPaths(rootPath string, relPaths []string) []string {
 
 	for _, relPath := range relPaths {
 		absPath := filepath.Join(rootPath, relPath)
-		absPath = filepath.Clean(absPath)
-
 		result = append(result, absPath)
 	}
 
