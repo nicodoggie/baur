@@ -13,9 +13,12 @@ import (
 type Task struct {
 	workingDir string
 	Cfg        *cfg.Task
-	appName    string
-	resolver   *resolve.Resolver
-	outputs    []Output
+
+	appName string
+
+	resolver *resolve.Resolver
+
+	outputs []Output
 }
 
 // TODO: instead of making Cfg public, make it private and add a getter or do

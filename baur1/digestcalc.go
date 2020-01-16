@@ -16,6 +16,28 @@ type DigestCalc struct{}
 // Retrieving it from a cache via it's filepath is also not ideal, the cache and the real implementation would not be exchangeable anymore, with the real implenetation the previous described issue exist.
 //also it's faster to store + access it in the file
 
+// InputFile calculates the Digest of the passed InputFile.
+// The input for the digest is the LocalPath of the file and it's content.
+// When the digest was successfull calculates, it's stored in the file via file.SetDigest().
+func (d *DigestCalc) InputFileDigest(file *InputFile) (*digest.Digest, error) {
+	sha := sha384.New()
+
+	err := sha.AddBytes([]byte(file.LocalPath()))
+	if err != nil {
+		return nil, err
+	}
+
+	err = sha.AddFile(file.Path())
+	if err != nil {
+		return nil, err
+	}
+
+	digest := sha.Digest()
+	file.SetDigest(digest)
+
+	return digest, nil
+}
+
 func (d *DigestCalc) TotalInputDigest(files []*InputFile) (*digest.Digest, error) {
 	digests := make([]*digest.Digest, 0, len(files))
 
