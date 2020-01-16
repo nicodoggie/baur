@@ -108,12 +108,12 @@ func (t *TaskStatusManager) FilterTasks(tasks []*Task, status TaskStatus) ([]*Ta
 func (t *TaskStatusManager) Status(task *Task) (TaskStatus, []*InputFile, *digest.Digest, int, error) {
 	inputs, err := t.inputResolver.Resolve(t.repositoryDir, task)
 	if err != nil {
-		return TaskStatusUndefined, nil, nil, -1, fmt.Errorf("%s: resolving inputs failed: %w", task.AppName(), err)
+		return TaskStatusUndefined, nil, nil, -1, fmt.Errorf("%s: resolving inputs failed: %w", task.AppName, err)
 	}
 
 	totalInputDigest, err := t.digestCalc.TotalInputDigest(inputs)
 	if err != nil {
-		return TaskStatusUndefined, nil, nil, -1, fmt.Errorf("%s: calculating total input digest failed: %w", task.AppName(), err)
+		return TaskStatusUndefined, nil, nil, -1, fmt.Errorf("%s: calculating total input digest failed: %w", task.AppName, err)
 	}
 
 	exist, id, err := t.runExists(task, totalInputDigest)
@@ -146,18 +146,18 @@ func (t *TaskStatusManager) pendingTasks(tasks []*Task) ([]*Task, error) {
 }
 
 func (t *TaskStatusManager) runExists(task *Task, totalInputDigest *digest.Digest) (bool, int, error) {
-	build, err := t.store.GetLatestBuildByDigest(task.AppName(), totalInputDigest.String())
+	build, err := t.store.GetLatestBuildByDigest(task.AppName, totalInputDigest.String())
 	if err != nil {
 		if err == storage.ErrNotExist {
 			return false, -1, nil
 		}
 
 		return false, -1, fmt.Errorf("%s: querying task run with totalInputDigest %q failed: %w",
-			task.AppName(), totalInputDigest.String(), err)
+			task.AppName, totalInputDigest.String(), err)
 	}
 
 	t.logger.Debugf("%s: task %s with totalInputDigest %q run successfully in the past, task ID: %s",
-		task.AppName(), totalInputDigest, build.ID)
+		task.AppName, totalInputDigest, build.ID)
 
 	return true, build.ID, nil
 }

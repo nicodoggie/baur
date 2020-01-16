@@ -57,3 +57,35 @@ func (d *DigestCalc) TotalInputDigest(files []*InputFile) (*digest.Digest, error
 
 	return totalDigest, nil
 }
+
+func (d *DigestCalc) OutputDigest(output Output) (*digest.Digest, error) {
+	switch output.Type() {
+	case FileOutput:
+		path, _ := output.LocalPath()
+
+		sha := sha384.New()
+
+		err := sha.AddFile(path)
+		if err != nil {
+			return nil, err
+		}
+
+		return sha.Digest(), nil
+
+	case DockerOutput:
+		imageID, err := output.LocalPath()
+		if err != nil {
+			return nil, err
+		}
+
+		digest, err := digest.FromString(imageID)
+		if err != nil {
+			return nil, fmt.Errorf("%q could not be parsed into a digest: %w", digest)
+		}
+
+		return digest, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported output type: %s", output.Type())
+	}
+}

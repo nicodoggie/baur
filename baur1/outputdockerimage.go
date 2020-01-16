@@ -9,19 +9,21 @@ import (
 
 // OutputDockerImage is a docker container artifact
 type OutputDockerImage struct {
-	localPath         string
-	absPath           string
 	imageIDFile       string
+	name              string
 	uploadDestination *url.URL
 }
 
-// Exists returns true if the ImageIDFile exists
-func (d *OutputDockerImage) Exists() bool {
-	return fs.FileExists(d.imageIDFile)
+func NewOutputDockerImage(name, imageIDFilePath string, uploadDestination *url.URL) *OutputDockerImage {
+	return &OutputDockerImage{
+		name:              name,
+		imageIDFile:       imageIDFilePath,
+		uploadDestination: uploadDestination,
+	}
 }
 
-// ImageID reads the image from ImageIDFile
-func (d *OutputDockerImage) ImageID() (string, error) {
+// LocalPath reads the image ID from the imageIDFile and returns it.
+func (d *OutputDockerImage) LocalPath() (string, error) {
 	id, err := fs.FileReadLine(d.imageIDFile)
 	if err != nil {
 		return "", err
@@ -34,18 +36,13 @@ func (d *OutputDockerImage) ImageID() (string, error) {
 	return id, nil
 }
 
-// String returns LocalPath()
+// String returns Name()
 func (d *OutputDockerImage) String() string {
-	return d.LocalPath()
+	return d.Name()
 }
 
-// LocalPath returns the local path to the artifact
-func (d *OutputDockerImage) LocalPath() string {
-	return d.localPath
-}
-
-func (d *OutputDockerImage) Path() string {
-	return d.absPath
+func (d *OutputDockerImage) Name() string {
+	return d.name
 }
 
 // UploadDestination returns the upload destination
@@ -53,7 +50,6 @@ func (d *OutputDockerImage) UploadDestination() *url.URL {
 	return d.uploadDestination
 }
 
-// Type returns "docker"
-func (d *OutputDockerImage) Type() string {
-	return "docker"
+func (d *OutputDockerImage) Type() OutputType {
+	return DockerOutput
 }

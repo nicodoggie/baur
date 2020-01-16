@@ -11,19 +11,15 @@ import (
 )
 
 type Task struct {
-	workingDir string
-	Cfg        *cfg.Task
+	Directory string
+	resolver  *resolve.Resolver
 
-	appName string
-
-	resolver *resolve.Resolver
-
-	outputs []Output
+	AppName          string
+	Command          string
+	Name             string
+	Outputs          []Output
+	UnresolvedInputs *cfg.Input
 }
-
-// TODO: instead of making Cfg public, make it private and add a getter or do
-// not make the cfg accessible and have getters for the required information
-// that must be retrieved
 
 func NewTask(appName string, cfg *cfg.Task, workingDir string) (*Task, error) {
 	outputs, err := outputs(cfg, workingDir)
@@ -32,88 +28,75 @@ func NewTask(appName string, cfg *cfg.Task, workingDir string) (*Task, error) {
 	}
 
 	return &Task{
-		appName:    appName,
-		workingDir: workingDir,
-		Cfg:        cfg,
-		outputs:    outputs,
+		Directory:        workingDir,
+		Outputs:          outputs,
+		Command:          cfg.Command,
+		Name:             cfg.Name,
+		AppName:          appName,
+		UnresolvedInputs: cfg.Input,
 	}, nil
-}
-
-// Name returns the name of the task
-func (t *Task) Name() string {
-	return t.Cfg.Name
-}
-
-func (t *Task) AppName() string {
-	return t.appName
 }
 
 // ID returns <APP-NAME>.<TASK-NAME>
 func (t *Task) ID() string {
-	return fmt.Sprintf("%s.%s", t.appName, t.Cfg.Name)
+	return fmt.Sprintf("%s.%s", t.AppName, t.Name)
 }
 
 func (t *Task) String() string {
 	return t.ID()
 }
 
-func (t *Task) Directory() string {
-	return t.workingDir
-}
-
-func (t *Task) Outputs() []Output {
-	return t.outputs
-}
-
-func (t *Task) Command() string {
-	return t.Cfg.Command
-}
-
 func outputs(cfg *cfg.Task, taskDir string) ([]Output, error) {
 	var result []Output
 
 	for _, outputFile := range cfg.Output.File {
-		f := &OutputFile{
-			localPath: outputFile.Path,
-			absPath:   filepath.Join(taskDir, outputFile.Path),
-		}
-
 		// TODO: use pointers in the outputfile struct for filecopy and S3 instead of having to provide and use IsEmpty)
-
 		if !outputFile.S3Upload.IsEmpty() {
 			var err error
 
-			f.uploadDestination, err = url.Parse("s3://" + outputFile.S3Upload.Bucket + "/" + outputFile.S3Upload.DestFile)
+			uploadDestination, err := url.Parse("s3://" + outputFile.S3Upload.Bucket + "/" + outputFile.S3Upload.DestFile)
 			if err != nil {
 				return nil, err
 			}
+
+			f := NewOutputFile(outputFile.Path, filepath.Join(taskDir, outputFile.Path), uploadDestination)
+			result = append(result, f)
 
 			continue
 		}
+
 		if !outputFile.FileCopy.IsEmpty() {
 			var err error
 
-			f.uploadDestination, err = url.Parse("file://" + outputFile.FileCopy.Path)
+			uploadDestination, err := url.Parse("file://" + outputFile.FileCopy.Path)
 			if err != nil {
 				return nil, err
 			}
+
+			f := NewOutputFile(outputFile.Path, filepath.Join(taskDir, outputFile.Path), uploadDestination)
+			result = append(result, f)
+
+			continue
 		}
 
-		result = append(result, f)
+		return nil, fmt.Errorf("no upload method for output %q is specified", outputFile.Path)
 	}
 
 	for _, dockerOutput := range cfg.Output.DockerImage {
 		strURL := fmt.Sprintf("docker://%s:%s", dockerOutput.RegistryUpload.Repository, dockerOutput.RegistryUpload.Tag)
+
 		url, err := url.Parse(strURL)
 		if err != nil {
 			return nil, err
 		}
 
-		result = append(result, &OutputDockerImage{
-			localPath:         dockerOutput.IDFile,
-			absPath:           filepath.Join(taskDir, dockerOutput.IDFile),
-			uploadDestination: url,
-		})
+		d := NewOutputDockerImage(
+			fmt.Sprintf("%s:%s", dockerOutput.RegistryUpload.Repository, dockerOutput.RegistryUpload.Tag),
+			filepath.Join(taskDir, dockerOutput.IDFile),
+			url,
+		)
+
+		result = append(result, d)
 	}
 
 	return result, nil

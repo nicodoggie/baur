@@ -41,20 +41,23 @@ func NewInputResolver(logger DebugLogger, glob GlobPathResolver, gitGlob GitGlob
 }
 
 func (i *InputResolver) Resolve(repositoryRoot string, task *Task) ([]*InputFile, error) {
+	// TODO: how to handle symlinks correctly?
+	// Create a digest over the link instead over the content?
+
 	goSourcePaths, err := i.goSourceResolver.Resolve(
-		task.Cfg.Input.GolangSources.Environment,
-		fs.AbsPaths(task.Directory(), task.Cfg.Input.GolangSources.Paths)...,
+		task.UnresolvedInputs.GolangSources.Environment,
+		fs.AbsPaths(task.Directory, task.UnresolvedInputs.GolangSources.Paths)...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("resolving golang source inputs failed: %w", err)
 	}
 
-	globPaths, err := i.globPathResolver.Resolve(fs.AbsPaths(task.Directory(), task.Cfg.Input.Files.Paths)...)
+	globPaths, err := i.globPathResolver.Resolve(fs.AbsPaths(task.Directory, task.UnresolvedInputs.Files.Paths)...)
 	if err != nil {
 		return nil, fmt.Errorf("resolving input files failed: %w", err)
 	}
 
-	gitPaths, err := i.gitGlobPathResolver.Resolve(task.Directory(), task.Cfg.Input.GitFiles.Paths...)
+	gitPaths, err := i.gitGlobPathResolver.Resolve(task.Directory, task.UnresolvedInputs.GitFiles.Paths...)
 	if err != nil {
 		return nil, fmt.Errorf("resolving git-file inputs failed: %w", err)
 	}

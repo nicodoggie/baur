@@ -17,12 +17,12 @@ func NewInputFile(absPath, localPath string) *InputFile {
 	}
 }
 
-// Path returns it's absolute path
+// Path returns the absolute path
 func (f *InputFile) Path() string {
 	return f.absPath
 }
 
-// LocalPath returns the files local path
+// LocalPath returns the path relative to application directory
 func (f *InputFile) LocalPath() string {
 	return f.localPath
 }

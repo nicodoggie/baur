@@ -82,7 +82,7 @@ func (t *TaskRunner) outputCount(taskRuns []*taskRun) int {
 	var cnt int
 
 	for _, taskRun := range taskRuns {
-		cnt += len(taskRun.task.Outputs())
+		cnt += len(taskRun.task.Outputs)
 	}
 
 	return cnt
@@ -237,22 +237,31 @@ func (t *TaskRunner) recordTaskRun(taskRun *taskRun) error {
 			panic(fmt.Sprintf("upload job file is not of type *UploadJob"))
 		}
 
+		outputDigest, err := t.digestCalc.OutputDigest(uploadJob.Output)
+		if err != nil {
+			err := fmt.Errorf("calculating digest for output %q failed: %w\n", uploadJob.Output, err)
+			fmt.Fprintf(t.streams.Stderr, "%s: %s", taskRun.task, err)
+			return err
+		}
+
+		//outputDigest, err :=
 		outputs = append(outputs, &storage.Output{
-			// TODO: do we really need to store Name??
+			// TODO: do we really need to store Name?? NO!?!?
 			// TODO: so far it was the repository relative
 			// path for file, now it's the app relative path, do we
 			// want to change that?
-			Name: uploadJob.Output.LocalPath(),
+			Name: uploadJob.Output.Name(),
 			// TODO: do we need to store Type? Why?
 			// We only have files and docker images, files
 			// we can not store in a docker registry and
 			// vice-versa. So the type can be inferred from the upload url
 			// TODO: make this cast safe
-			Type: storage.ArtifactType(uploadJob.Output.Type()),
+			//Type:
 
 			// TODO: provide objects to get informations about outputs, like the size and digest and if they exist?
-			SizeBytes: 0,
-			Digest:    "0",
+			//SizeBytes: 0,
+			Digest: outputDigest.String(),
+
 			Upload: storage.Upload{
 				UploadDuration: upload.EndTime.Sub(upload.StartTime),
 				// TODO: is it URI or URL in uploadResult?
@@ -279,7 +288,7 @@ func (t *TaskRunner) recordTaskRun(taskRun *taskRun) error {
 
 	b := storage.Build{
 		Application: storage.Application{
-			Name: taskRun.task.AppName(),
+			Name: taskRun.task.AppName,
 		},
 		// TODO: VCSState
 		StartTimeStamp:   taskRun.runStartTs,
@@ -289,7 +298,17 @@ func (t *TaskRunner) recordTaskRun(taskRun *taskRun) error {
 		Inputs:           inputs,
 	}
 
-	return t.statusMgr.store.Save(&b)
+	t.logger.Debugf("%s: storing task run in database", taskRun.task)
+
+	err := t.statusMgr.store.Save(&b)
+	if err != nil {
+		fmt.Fprintf(t.streams.Stderr, "%s: recording task run in database failed: %s\n", taskRun.task, err)
+		return err
+	}
+
+	fmt.Fprintf(t.streams.Stdout, "%s: task run stored in database (id: %d)\n", taskRun.task.ID(), b.ID)
+
+	return nil
 
 }
 func (t *TaskRunner) processUploads(ctx context.Context, uploadResultChan <-chan *scheduler.UploadResult, result chan<- []error, outputCnt int) {
@@ -334,9 +353,9 @@ func (t *TaskRunner) processUploads(ctx context.Context, uploadResultChan <-chan
 			job.TaskRun.finishedUploads = append(job.TaskRun.finishedUploads, res)
 
 			t.logger.Debugf("%s: %d/%d output uploads finished",
-				task, len(job.TaskRun.finishedUploads), len(task.Outputs()))
+				task, len(job.TaskRun.finishedUploads), len(task.Outputs))
 
-			if len(job.TaskRun.finishedUploads) != len(task.Outputs()) {
+			if len(job.TaskRun.finishedUploads) != len(task.Outputs) {
 				continue
 			}
 
@@ -374,8 +393,8 @@ func (t *TaskRunner) run(taskRun *taskRun) error {
 
 	taskRun.runStartTs = time.Now()
 
-	_, err := exec.ShellCommand(task.Command()).
-		Directory(task.Directory()).
+	_, err := exec.ShellCommand(task.Command).
+		Directory(task.Directory).
 		DebugfPrefix(color.YellowString(fmt.Sprintf("%s: ", task))).
 		ExpectSuccess().
 		Run()
@@ -401,7 +420,7 @@ func (t *TaskRunner) queueOutputUploads(taskRun *taskRun, uploader *scheduler.Se
 	task := taskRun.task
 
 	// TODO: write tests for uploaders to ensure they process the destination url correctly
-	for _, output := range task.outputs {
+	for _, output := range task.Outputs {
 		uploader.Queue(&UploadJob{
 			ID:      fmt.Sprintf("%s: %s -> %s", task, output.LocalPath(), output.UploadDestination()),
 			TaskRun: taskRun,
@@ -413,11 +432,11 @@ func (t *TaskRunner) queueOutputUploads(taskRun *taskRun, uploader *scheduler.Se
 }
 
 func (t *TaskRunner) taskOutputsExist(task *Task) error {
-	if len(task.Outputs()) == 0 {
+	if len(task.Outputs) == 0 {
 		t.logger.Debugf("%s: task has no outputs\n", task)
 	}
 
-	for _, output := range task.Outputs() {
+	for _, output := range task.Outputs {
 		if !output.Exists() {
 			fmt.Fprintf(t.streams.Stderr, "%s: output %q was not created by task run\n", task, output.LocalPath())
 			return fmt.Errorf("output %s does not exist", output.LocalPath())
