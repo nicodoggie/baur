@@ -162,7 +162,8 @@ func PathsJoin(rootPath string, relPaths []string) []string {
 	return absPaths
 }
 
-// FileReadLine reads the first line from a file
+// FileReadLine reads the file content up to the first newline character.
+// If the file is empty an empty string and no error is returned.
 func FileReadLine(path string) (string, error) {
 	fd, err := os.Open(path)
 	if err != nil {
