@@ -4,10 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"net/url"
-	"os"
 	"strings"
 
 	docker "github.com/fsouza/go-dockerclient"
@@ -218,23 +216,14 @@ func (c *Client) Upload(ctx context.Context, image string, destURI *url.URL) (st
 	return destURI.String(), nil
 }
 
-// Size returns the size of an image in Bytes
+// Size returns the size of an image in Bytes.
 func (c *Client) Size(imageID string) (int64, error) {
-	images, err := c.clt.ListImages(docker.ListImagesOptions{})
+	img, err := c.clt.InspectImage(imageID)
 	if err != nil {
-		return -1, errors.Wrap(err, "fetching imagelist failed")
+		return -1, err
 	}
 
-	for _, img := range images {
-		if img.ID == imageID {
-			if img.VirtualSize <= 0 {
-				return -1, fmt.Errorf("docker returned invalid image size %q", img.VirtualSize)
-			}
-			return img.VirtualSize, nil
-		}
-	}
-
-	return -1, os.ErrNotExist
+	return img.VirtualSize, nil
 }
 
 // Exists return true if the image with the given ID exist, otherwise false.
