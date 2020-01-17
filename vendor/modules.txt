@@ -42,8 +42,6 @@ github.com/aws/aws-sdk-go/service/s3/s3manager
 github.com/aws/aws-sdk-go/service/sts
 # github.com/containerd/continuity v0.0.0-20181203112020-004b46473808
 github.com/containerd/continuity/pathdriver
-# github.com/davecgh/go-spew v1.1.1
-github.com/davecgh/go-spew/spew
 # github.com/docker/docker v0.7.3-0.20190212235812-0111ee70874a
 github.com/docker/docker/api/types/blkiodev
 github.com/docker/docker/api/types/container
@@ -105,8 +103,6 @@ github.com/opencontainers/runc/libcontainer/user
 github.com/pelletier/go-toml
 # github.com/pkg/errors v0.8.1
 github.com/pkg/errors
-# github.com/pmezard/go-difflib v1.0.0
-github.com/pmezard/go-difflib/difflib
 # github.com/rs/xid v1.2.1
 github.com/rs/xid
 # github.com/sirupsen/logrus v1.4.1
@@ -115,9 +111,6 @@ github.com/sirupsen/logrus
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.3
 github.com/spf13/pflag
-# github.com/stretchr/testify v1.3.0
-github.com/stretchr/testify/assert
-github.com/stretchr/testify/require
 # golang.org/x/sys v0.0.0-20190416152802-12500544f89f
 golang.org/x/sys/unix
 golang.org/x/sys/windows
