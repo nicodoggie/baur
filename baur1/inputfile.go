@@ -1,6 +1,11 @@
 package baur1
 
-import "github.com/simplesurance/baur/digest"
+import (
+	"fmt"
+
+	"github.com/simplesurance/baur/digest"
+	"github.com/simplesurance/baur/digest/sha384"
+)
 
 // InputFile represent a file
 type InputFile struct {
@@ -32,12 +37,44 @@ func (f *InputFile) String() string {
 	return f.localPath
 }
 
-// Digest returns the stored digest, must have been set before via SetDigest().
-// Otherwise nil is returned.
-func (f *InputFile) Digest() *digest.Digest {
-	return f.digest
+func (f *InputFile) Digest() (*digest.Digest, error) {
+	if f.digest != nil {
+		return f.digest, nil
+	}
+
+	sha := sha384.New()
+
+	err := sha.AddBytes([]byte(f.absPath))
+	if err != nil {
+		return nil, err
+	}
+
+	err = sha.AddFile(f.absPath)
+	if err != nil {
+		return nil, err
+	}
+
+	f.digest = sha.Digest()
+
+	return f.digest, nil
 }
 
-func (f *InputFile) SetDigest(d *digest.Digest) {
-	f.digest = d
+func TotalInputDigest(files []*InputFile) (*digest.Digest, error) {
+	digests := make([]*digest.Digest, 0, len(files))
+
+	for _, file := range files {
+		digest, err := file.Digest()
+		if err != nil {
+			return nil, fmt.Errorf("calculating digest for %q failed: %w", file.Path(), err)
+		}
+
+		digests = append(digests, digest)
+	}
+
+	totalDigest, err := sha384.Sum(digests)
+	if err != nil {
+		return nil, err
+	}
+
+	return totalDigest, nil
 }

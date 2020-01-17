@@ -54,7 +54,6 @@ type TaskStatusManager struct {
 	logger        *log.Logger
 	store         storage.Storer
 	inputResolver *InputResolver
-	digestCalc    *DigestCalc
 }
 
 func NewTaskStatusManager(
@@ -62,14 +61,12 @@ func NewTaskStatusManager(
 	logger *log.Logger,
 	store storage.Storer,
 	inputResolver *InputResolver,
-	digestCalc *DigestCalc,
 ) *TaskStatusManager {
 	return &TaskStatusManager{
 		repositoryDir: repositoryDir,
 		logger:        logger,
 		store:         store,
 		inputResolver: inputResolver,
-		digestCalc:    digestCalc,
 	}
 }
 
@@ -111,7 +108,7 @@ func (t *TaskStatusManager) Status(task *Task) (TaskStatus, []*InputFile, *diges
 		return TaskStatusUndefined, nil, nil, -1, fmt.Errorf("%s: resolving inputs failed: %w", task.AppName, err)
 	}
 
-	totalInputDigest, err := t.digestCalc.TotalInputDigest(inputs)
+	totalInputDigest, err := TotalInputDigest(inputs)
 	if err != nil {
 		return TaskStatusUndefined, nil, nil, -1, fmt.Errorf("%s: calculating total input digest failed: %w", task.AppName, err)
 	}

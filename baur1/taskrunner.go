@@ -23,11 +23,10 @@ import (
 
 // TODO: use interfaces instead of pointers to the structs?
 type TaskRunner struct {
-	statusMgr  *TaskStatusManager
-	digestCalc *DigestCalc
-	logger     *log.Logger
-	streams    *OutputStreams
-	uploaders  *Uploaders
+	statusMgr *TaskStatusManager
+	logger    *log.Logger
+	streams   *OutputStreams
+	uploaders *Uploaders
 }
 
 type Uploaders struct {
@@ -41,26 +40,10 @@ type OutputStreams struct {
 	Stderr io.WriteCloser
 }
 
-// TODO: remove TaskError?
-type TaskError struct {
-	Task  *Task
-	Msg   string
-	Cause error
-}
-
-func (t *TaskError) Unwrap() error {
-	return t.Cause
-}
-
-func (t *TaskError) Error() string {
-	return fmt.Sprintf("%s: %s: %s", t.Task, t.Msg, t.Cause.Error())
-}
-
-func NewTaskRunner(logger *log.Logger, streams *OutputStreams, statusMgr *TaskStatusManager, digestCalc *DigestCalc, uploaders *Uploaders) *TaskRunner {
+func NewTaskRunner(logger *log.Logger, streams *OutputStreams, statusMgr *TaskStatusManager, uploaders *Uploaders) *TaskRunner {
 	return &TaskRunner{
-		statusMgr:  statusMgr,
-		digestCalc: digestCalc,
-		uploaders:  uploaders,
+		statusMgr: statusMgr,
+		uploaders: uploaders,
 
 		streams: streams,
 		logger:  logger,
@@ -78,11 +61,21 @@ const (
 	RunFilterAlways
 )
 
-func (t *TaskRunner) outputCount(taskRuns []*taskRun) int {
+func (t *TaskRunner) uploadCount(taskRuns []*taskRun) int {
 	var cnt int
 
 	for _, taskRun := range taskRuns {
-		cnt += len(taskRun.task.Outputs)
+		for _, file := range taskRun.task.Outputs.File {
+			if !file.S3Upload.IsEmpty() {
+				cnt++
+			}
+
+			if !file.FileCopy.IsEmpty() {
+				cnt++
+			}
+		}
+
+		cnt += len(taskRun.task.Outputs.DockerImage)
 	}
 
 	return cnt
@@ -97,6 +90,7 @@ type taskRun struct {
 
 	totalInputDigest *digest.Digest
 	inputs           []*InputFile
+	outputs          []Output
 }
 
 // TODO: streams neeed to be protected with a lock, because we write to it from goroutines, best is to have a constructor for the streams struct that wraps the writer in a write method with a lock
@@ -162,15 +156,16 @@ func (t *TaskRunner) Run(tasks []*Task, runFilter RunFilter, skipUploading bool)
 	var processUploadsResultChan chan []error
 	var uploadQueue chan scheduler.UploadJob
 
-	outputCnt := t.outputCount(taskRuns)
+	uploadCnt := t.uploadCount(taskRuns)
 
 	if skipUploading {
 		fmt.Fprintf(t.streams.Stdout, "tasks outputs will not be uploaded\n")
 	} else {
 		var err error
+
 		// TODO: do not start uploader when skipUploading==true
-		uploadResultChan := make(chan *scheduler.UploadResult, outputCnt)
-		uploadQueue = make(chan scheduler.UploadJob, outputCnt)
+		uploadResultChan := make(chan *scheduler.UploadResult, uploadCnt)
+		uploadQueue = make(chan scheduler.UploadJob, uploadCnt)
 		uploader, err = scheduler.NewSequential(
 			t.logger,
 			uploadQueue,
@@ -187,17 +182,16 @@ func (t *TaskRunner) Run(tasks []*Task, runFilter RunFilter, skipUploading bool)
 		uploader.Start(context.Background())
 
 		processUploadsResultChan = make(chan []error, 1)
-		go t.processUploads(context.Background(), uploadResultChan, processUploadsResultChan, outputCnt)
+		go t.processUploads(context.Background(), uploadResultChan, processUploadsResultChan)
 	}
 
-	var results []*taskRun
 	for _, taskRun := range taskRuns {
-		results = append(results, taskRun)
-
-		err := t.run(taskRun)
+		outputs, err := t.run(taskRun)
 		if err != nil {
 			return err
 		}
+
+		taskRun.outputs = outputs
 
 		if !skipUploading {
 			t.queueOutputUploads(taskRun, uploader)
@@ -207,7 +201,7 @@ func (t *TaskRunner) Run(tasks []*Task, runFilter RunFilter, skipUploading bool)
 	}
 
 	if !skipUploading {
-		close(uploadQueue) // closing the channel wil terminate the uploader go routine
+		close(uploadQueue) // closing the channel wil terminate the uploader go routine which will also close the uploadResultChan and then the processUploads routine terminates
 		errors := <-processUploadsResultChan
 		if errors != nil {
 			return fmt.Errorf("%+v", errors)
@@ -237,11 +231,30 @@ func (t *TaskRunner) recordTaskRun(taskRun *taskRun) error {
 			panic(fmt.Sprintf("upload job file is not of type *UploadJob"))
 		}
 
-		outputDigest, err := t.digestCalc.OutputDigest(uploadJob.Output)
+		outputDigest, err := uploadJob.Output.Digest()
 		if err != nil {
-			err := fmt.Errorf("calculating digest for output %q failed: %w\n", uploadJob.Output, err)
-			fmt.Fprintf(t.streams.Stderr, "%s: %s", taskRun.task, err)
+			err := fmt.Errorf("calculating digest for output %q failed: %w", uploadJob.Output, err)
+			fmt.Fprintf(t.streams.Stderr, "%s: %s\n", taskRun.task, err)
 			return err
+		}
+
+		outputSize, err := uploadJob.Output.Size()
+		if err != nil {
+			err := fmt.Errorf(" digest for output %q failed: %w", uploadJob.Output, err)
+			fmt.Fprintf(t.streams.Stderr, "%s: %s\n", taskRun.task, err)
+			return err
+		}
+
+		var artifactType storage.ArtifactType
+		switch uploadJob.Output.Type() {
+		case DockerOutput:
+			artifactType = storage.DockerArtifact
+
+		case FileOutput:
+			artifactType = storage.FileArtifact
+
+		default:
+			return fmt.Errorf("unsupported output type: %s", uploadJob.Output.Type())
 		}
 
 		//outputDigest, err :=
@@ -250,17 +263,16 @@ func (t *TaskRunner) recordTaskRun(taskRun *taskRun) error {
 			// TODO: so far it was the repository relative
 			// path for file, now it's the app relative path, do we
 			// want to change that?
-			Name: uploadJob.Output.Name(),
+			Name: uploadJob.Output.String(),
 			// TODO: do we need to store Type? Why?
 			// We only have files and docker images, files
 			// we can not store in a docker registry and
 			// vice-versa. So the type can be inferred from the upload url
 			// TODO: make this cast safe
-			//Type:
+			Type: artifactType,
 
-			// TODO: provide objects to get informations about outputs, like the size and digest and if they exist?
-			//SizeBytes: 0,
-			Digest: outputDigest.String(),
+			SizeBytes: outputSize,
+			Digest:    outputDigest.String(),
 
 			Upload: storage.Upload{
 				UploadDuration: upload.EndTime.Sub(upload.StartTime),
@@ -279,10 +291,17 @@ func (t *TaskRunner) recordTaskRun(taskRun *taskRun) error {
 			return err
 		}
 
+		digest, err := input.Digest()
+		if err != nil {
+			err := fmt.Errorf("retrieving digest for input %q failed: %w", input, err)
+			fmt.Fprintf(t.streams.Stderr, "%s: %s\n", taskRun.task, err)
+			return err
+		}
+
 		inputs = append(inputs, &storage.Input{
 			// TODO: we only have files as inputs, so rename it to Path? Or instead really store an URI?
 			URI:    repositoryRelPath,
-			Digest: input.Digest().String(),
+			Digest: digest.String(),
 		})
 	}
 
@@ -311,7 +330,7 @@ func (t *TaskRunner) recordTaskRun(taskRun *taskRun) error {
 	return nil
 
 }
-func (t *TaskRunner) processUploads(ctx context.Context, uploadResultChan <-chan *scheduler.UploadResult, result chan<- []error, outputCnt int) {
+func (t *TaskRunner) processUploads(ctx context.Context, uploadResultChan <-chan *scheduler.UploadResult, result chan<- []error) {
 	var errors []error
 
 	defer func() {
@@ -319,7 +338,7 @@ func (t *TaskRunner) processUploads(ctx context.Context, uploadResultChan <-chan
 		close(result)
 	}()
 
-	for i := 0; i < outputCnt; i++ {
+	for {
 		select {
 		case <-ctx.Done():
 			return
@@ -352,10 +371,11 @@ func (t *TaskRunner) processUploads(ctx context.Context, uploadResultChan <-chan
 
 			job.TaskRun.finishedUploads = append(job.TaskRun.finishedUploads, res)
 
+			expectedOutputCnt := len(job.TaskRun.outputs)
 			t.logger.Debugf("%s: %d/%d output uploads finished",
-				task, len(job.TaskRun.finishedUploads), len(task.Outputs))
+				task, len(job.TaskRun.finishedUploads), expectedOutputCnt)
 
-			if len(job.TaskRun.finishedUploads) != len(task.Outputs) {
+			if len(job.TaskRun.finishedUploads) != expectedOutputCnt {
 				continue
 			}
 
@@ -388,7 +408,7 @@ func (u *UploadJob) Destination() *url.URL {
 	return u.Dest
 }
 
-func (t *TaskRunner) run(taskRun *taskRun) error {
+func (t *TaskRunner) run(taskRun *taskRun) ([]Output, error) {
 	task := taskRun.task
 
 	taskRun.runStartTs = time.Now()
@@ -403,47 +423,51 @@ func (t *TaskRunner) run(taskRun *taskRun) error {
 
 	if err != nil {
 		fmt.Fprintf(t.streams.Stderr, "%s: %s", task, err)
-		return err
+		return nil, err
 	}
 
 	fmt.Fprintf(t.streams.Stdout, "%s: task execution successful (%s)\n", task, term.SecondDuration(taskRun.runStopTs.Sub(taskRun.runStartTs)))
 
-	err = t.taskOutputsExist(task)
-	if err != nil {
-		return fmt.Errorf("%s: %w", task, err)
+	outputs, err := OutputsFromTask(t.uploaders.Docker, task)
+	if len(outputs) == 0 {
+		t.logger.Debugf("%s: task has no outputs\n", task)
+		return nil, nil
 	}
 
-	return nil
+	// TODO: move this to somewhere else?
+	for _, output := range outputs {
+		exist, err := output.Exists()
+		if err != nil {
+			err := fmt.Errorf("%s: checking if output %q exist failed: %w", task, output, err)
+			fmt.Fprintf(t.streams.Stderr, "%s\n", err)
+
+			return nil, err
+		}
+
+		if !exist {
+			err := fmt.Errorf("output %q was not created by task run", task, output)
+			fmt.Fprintf(t.streams.Stderr, "%s: %s\n", task, err)
+
+			return nil, err
+		}
+
+		t.logger.Debugf("%s: task run created %s\n", task, output)
+	}
+
+	return outputs, nil
 }
 
 func (t *TaskRunner) queueOutputUploads(taskRun *taskRun, uploader *scheduler.Sequential) {
 	task := taskRun.task
 
 	// TODO: write tests for uploaders to ensure they process the destination url correctly
-	for _, output := range task.Outputs {
+	for _, output := range taskRun.outputs {
 		uploader.Queue(&UploadJob{
-			ID:      fmt.Sprintf("%s: %s -> %s", task, output.LocalPath(), output.UploadDestination()),
+			ID:      fmt.Sprintf("%s: %s -> %s", task, output, output.UploadDestination()),
 			TaskRun: taskRun,
 			Src:     output.Path(),
 			Dest:    output.UploadDestination(),
 			Output:  output,
 		})
 	}
-}
-
-func (t *TaskRunner) taskOutputsExist(task *Task) error {
-	if len(task.Outputs) == 0 {
-		t.logger.Debugf("%s: task has no outputs\n", task)
-	}
-
-	for _, output := range task.Outputs {
-		if !output.Exists() {
-			fmt.Fprintf(t.streams.Stderr, "%s: output %q was not created by task run\n", task, output.LocalPath())
-			return fmt.Errorf("output %s does not exist", output.LocalPath())
-		}
-
-		t.logger.Debugf("%s: task run created %s\n", task, output.LocalPath())
-	}
-
-	return nil
 }

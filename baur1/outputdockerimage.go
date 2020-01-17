@@ -1,55 +1,72 @@
 package baur1
 
 import (
+	"fmt"
 	"net/url"
 
-	"github.com/pkg/errors"
+	"github.com/simplesurance/baur/digest"
 	"github.com/simplesurance/baur/fs"
 )
 
+type DockerInfoClient interface {
+	Size(imageID string) (int64, error)
+	Exists(imageID string) (bool, error)
+}
+
 // OutputDockerImage is a docker container artifact
 type OutputDockerImage struct {
-	imageIDFile       string
-	name              string
+	imageID           string
 	uploadDestination *url.URL
+	dockerClient      DockerInfoClient
+	digest            *digest.Digest
 }
 
-func NewOutputDockerImage(name, imageIDFilePath string, uploadDestination *url.URL) *OutputDockerImage {
-	return &OutputDockerImage{
-		name:              name,
-		imageIDFile:       imageIDFilePath,
-		uploadDestination: uploadDestination,
-	}
-}
+// TODO: make the hasher implementation exchangeable
 
-// LocalPath reads the image ID from the imageIDFile and returns it.
-func (d *OutputDockerImage) LocalPath() (string, error) {
-	id, err := fs.FileReadLine(d.imageIDFile)
+func NewOutputDockerImageFromIIDFile(dockerClient DockerInfoClient, iidfile string, uploadDestination *url.URL) (*OutputDockerImage, error) {
+	id, err := fs.FileReadLine(iidfile)
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("reading %s failed: %w", iidfile, err)
 	}
 
-	if len(id) == 0 {
-		return "", errors.New("file is empty")
+	digest, err := digest.FromString(id)
+	if err != nil {
+		return nil, fmt.Errorf("image id %q read from %q has an invalid format: %w", id, iidfile, err)
 	}
 
-	return id, nil
+	return &OutputDockerImage{
+		dockerClient:      dockerClient,
+		imageID:           id,
+		uploadDestination: uploadDestination,
+		digest:            digest,
+	}, nil
 }
 
-// String returns Name()
 func (d *OutputDockerImage) String() string {
-	return d.Name()
+	return fmt.Sprintf("docker image: %s", d.imageID)
 }
 
-func (d *OutputDockerImage) Name() string {
-	return d.name
+func (d *OutputDockerImage) Path() string {
+	return d.imageID
 }
 
-// UploadDestination returns the upload destination
 func (d *OutputDockerImage) UploadDestination() *url.URL {
 	return d.uploadDestination
 }
 
 func (d *OutputDockerImage) Type() OutputType {
 	return DockerOutput
+}
+
+func (d *OutputDockerImage) Exists() (bool, error) {
+	return d.dockerClient.Exists(d.imageID)
+}
+
+// Digest returns the imageID as a digest object. The method always returns a nil error.
+func (d *OutputDockerImage) Digest() (*digest.Digest, error) {
+	return d.digest, nil
+}
+
+func (d *OutputDockerImage) Size() (int64, error) {
+	return d.dockerClient.Size(d.imageID)
 }
