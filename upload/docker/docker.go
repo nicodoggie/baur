@@ -220,17 +220,17 @@ func (c *Client) Upload(ctx context.Context, image string, destURI *url.URL) (st
 
 // Size returns the size of an image in Bytes
 func (c *Client) Size(imageID string) (int64, error) {
-	summaries, err := c.clt.ListImages(docker.ListImagesOptions{})
+	images, err := c.clt.ListImages(docker.ListImagesOptions{})
 	if err != nil {
 		return -1, errors.Wrap(err, "fetching imagelist failed")
 	}
 
-	for _, sum := range summaries {
-		if sum.ID == imageID {
-			if sum.VirtualSize <= 0 {
-				return -1, fmt.Errorf("docker returned invalid image size %q", sum.VirtualSize)
+	for _, img := range images {
+		if img.ID == imageID {
+			if img.VirtualSize <= 0 {
+				return -1, fmt.Errorf("docker returned invalid image size %q", img.VirtualSize)
 			}
-			return sum.VirtualSize, nil
+			return img.VirtualSize, nil
 		}
 	}
 
