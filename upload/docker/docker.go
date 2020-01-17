@@ -237,6 +237,16 @@ func (c *Client) Size(imageID string) (int64, error) {
 	return -1, os.ErrNotExist
 }
 
+// Exists return true if the image with the given ID exist, otherwise false.
+func (c *Client) Exists(imageID string) (bool, error) {
+	_, err := c.clt.InspectImage(imageID)
+	if err != nil && err != docker.ErrNoSuchImage {
+		return false, err
+	}
+
+	return err != docker.ErrNoSuchImage, nil
+}
+
 func (c *Client) URIScheme() string {
 	return "docker"
 }
