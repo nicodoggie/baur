@@ -20,7 +20,6 @@ type Task struct {
 }
 
 func NewTask(appName string, cfg *cfg.Task, workingDir string) (*Task, error) {
-
 	return &Task{
 		Directory:        workingDir,
 		Outputs:          cfg.Output,

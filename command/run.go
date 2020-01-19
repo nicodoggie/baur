@@ -148,7 +148,6 @@ func (c *RunOptions) Run(cmd *cobra.Command, args []string) {
 			util.ExitOnErr(err)
 			apps = append(apps, app)
 		}
-
 	}
 
 	// TODO: use MustGetPostgresClt() instead

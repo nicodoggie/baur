@@ -37,11 +37,8 @@ func (f *InputFile) String() string {
 	return f.localPath
 }
 
-func (f *InputFile) Digest() (*digest.Digest, error) {
-	if f.digest != nil {
-		return f.digest, nil
-	}
-
+// CalcDigest calculates the digest of the file, saves it and returns it.
+func (f *InputFile) CalcDigest() (*digest.Digest, error) {
 	sha := sha384.New()
 
 	err := sha.AddBytes([]byte(f.absPath))
@@ -57,6 +54,17 @@ func (f *InputFile) Digest() (*digest.Digest, error) {
 	f.digest = sha.Digest()
 
 	return f.digest, nil
+}
+
+// Digest returns the previous calculated digest.
+// If the digest wasn't calculated yet, CalcDigest() is called and it's return
+// values are returned.
+func (f *InputFile) Digest() (*digest.Digest, error) {
+	if f.digest != nil {
+		return f.digest, nil
+	}
+
+	return f.CalcDigest()
 }
 
 func TotalInputDigest(files []*InputFile) (*digest.Digest, error) {
