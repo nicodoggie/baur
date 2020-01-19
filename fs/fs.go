@@ -56,17 +56,6 @@ func IsDir(path string) (bool, error) {
 	return fi.IsDir(), nil
 }
 
-// IsRegularFile returns true if path is a regular file.
-// If the directory does not exist, the error from os.Stat() is returned.
-func IsRegularFile(path string) (bool, error) {
-	fi, err := os.Stat(path)
-	if err != nil {
-		return false, err
-	}
-
-	return fi.Mode().IsRegular(), nil
-}
-
 // SameFile calls os.Samefile(), if one of the files does not exist, the error
 // from os.Stat() is returned.
 func SameFile(a, b string) (bool, error) {

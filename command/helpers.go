@@ -9,6 +9,7 @@ import (
 	"github.com/simplesurance/baur"
 	"github.com/simplesurance/baur/command/util"
 	"github.com/simplesurance/baur/format"
+	"github.com/simplesurance/baur/fs"
 	"github.com/simplesurance/baur/log"
 	"github.com/simplesurance/baur/storage"
 	"github.com/simplesurance/baur/storage/postgres"
@@ -45,9 +46,8 @@ func MustFindRepository() *baur.Repository {
 
 func isAppDir(arg string) bool {
 	cfgPath := path.Join(arg, baur.AppCfgFile)
-	_, err := os.Stat(cfgPath)
-
-	return err == nil
+	isFile, _ := fs.IsFile(cfgPath)
+	return isFile
 }
 
 func mustArgToApp(repo *baur.Repository, arg string) *baur.App {
@@ -192,4 +192,11 @@ func bytesToMib(bytes int) string {
 
 func durationToStrSeconds(duration time.Duration) string {
 	return fmt.Sprintf("%.3f", duration.Seconds())
+}
+
+func ExitOnErr(err error) {
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }

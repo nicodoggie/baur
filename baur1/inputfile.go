@@ -9,22 +9,16 @@ import (
 
 // InputFile represent a file
 type InputFile struct {
+	*File
 	localPath string
-	absPath   string
-	digest    *digest.Digest
 }
 
 // NewInputFile returns a new file
 func NewInputFile(absPath, localPath string) *InputFile {
 	return &InputFile{
+		File:      &File{AbsPath: absPath},
 		localPath: localPath,
-		absPath:   absPath,
 	}
-}
-
-// Path returns the absolute path
-func (f *InputFile) Path() string {
-	return f.absPath
 }
 
 // LocalPath returns the path relative to application directory
@@ -35,36 +29,6 @@ func (f *InputFile) LocalPath() string {
 // String returns LocalPath()
 func (f *InputFile) String() string {
 	return f.localPath
-}
-
-// CalcDigest calculates the digest of the file, saves it and returns it.
-func (f *InputFile) CalcDigest() (*digest.Digest, error) {
-	sha := sha384.New()
-
-	err := sha.AddBytes([]byte(f.absPath))
-	if err != nil {
-		return nil, err
-	}
-
-	err = sha.AddFile(f.absPath)
-	if err != nil {
-		return nil, err
-	}
-
-	f.digest = sha.Digest()
-
-	return f.digest, nil
-}
-
-// Digest returns the previous calculated digest.
-// If the digest wasn't calculated yet, CalcDigest() is called and it's return
-// values are returned.
-func (f *InputFile) Digest() (*digest.Digest, error) {
-	if f.digest != nil {
-		return f.digest, nil
-	}
-
-	return f.CalcDigest()
 }
 
 func TotalInputDigest(files []*InputFile) (*digest.Digest, error) {

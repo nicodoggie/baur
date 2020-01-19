@@ -10,7 +10,6 @@ import (
 	"github.com/simplesurance/baur/baur1"
 	"github.com/simplesurance/baur/command/util"
 	"github.com/simplesurance/baur/digest"
-	"github.com/simplesurance/baur/fs"
 	"github.com/simplesurance/baur/log"
 	"github.com/simplesurance/baur/resolve/gitpath"
 	"github.com/simplesurance/baur/resolve/glob"
@@ -27,8 +26,8 @@ import (
 // TODO: Passing "*" as argument is not nice to use in a shell, without quoting it will expand
 
 var runLongHelp = fmt.Sprintf(`
-Run Tasks.
-If no argument is passed, all tasks in the repository are run,.
+Run tasks.
+If no argument is passed, all tasks in the repository are run.
 By default only tasks with status %s are run.
 
 Tasks-Specifier is in the format:
@@ -73,7 +72,6 @@ baur run --force --skip-upload	Run all tasks of all application, rerun them if t
 `
 
 type RunOptions struct {
-	skipRecord bool
 	skipUpload bool
 	force      bool
 }
@@ -92,8 +90,6 @@ func NewRunCommand() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&opts.skipUpload, "skip-upload", "s", false,
 		"skip uploading task outputs")
-	cmd.Flags().BoolVarP(&opts.skipRecord, "skip-record", "r", false,
-		"skip recording the results to the database, --skip-upload must also be passed")
 	cmd.Flags().BoolVarP(&opts.force, "force", "f", false,
 		"force rebuilding of tasks with status "+baur.BuildStatusExist.String())
 
@@ -118,15 +114,12 @@ func dockerAuthFromEnv() (string, string) {
 }
 
 func (c *RunOptions) Run(cmd *cobra.Command, args []string) {
-	if c.skipRecord && !c.skipUpload {
-		log.Fatalln("--skip-upload must be passed when --skip-record is specified")
-	}
-
 	log.StdLogger.EnableDebug(verboseFlag)
 
 	repoCfg, err := baur1.FindAndLoadRepositoryConfigCwd()
+	ExitOnErr(err)
 	appLoader, err := baur1.NewAppLoader(repoCfg)
-	util.ExitOnErr(err)
+	ExitOnErr(err)
 
 	var apps []*baur1.App
 
@@ -139,13 +132,13 @@ func (c *RunOptions) Run(cmd *cobra.Command, args []string) {
 		}
 	} else {
 		// TODO handle err and Isfile correctly,
-		if isFile, _ := fs.IsRegularFile(args[0]); isFile {
-			app, err := appLoader.Path(args[0])
-			util.ExitOnErr(err)
+		if isAppDir(args[0]) {
+			app, err := appLoader.Path(filepath.Join(args[0], baur1.AppCfgFile))
+			ExitOnErr(err)
 			apps = append(apps, app)
 		} else {
 			app, err := appLoader.Name(args[0])
-			util.ExitOnErr(err)
+			ExitOnErr(err)
 			apps = append(apps, app)
 		}
 	}
@@ -165,14 +158,11 @@ func (c *RunOptions) Run(cmd *cobra.Command, args []string) {
 		gosource.NewResolver(log.StdLogger.Debugf),
 	)
 
-	digestCalc := baur1.DigestCalc{}
-
 	taskStatusMgr := baur1.NewTaskStatusManager(
 		repositoryDir,
 		log.StdLogger,
 		clt,
 		inputResolver,
-		&digestCalc,
 	)
 
 	s3Uploader, err := s3.NewClient(log.StdLogger)
@@ -199,11 +189,10 @@ func (c *RunOptions) Run(cmd *cobra.Command, args []string) {
 	taskRunner := baur1.NewTaskRunner(
 		log.StdLogger,
 		&baur1.OutputStreams{
-			Stdout: os.Stdout,
-			Stderr: os.Stderr,
+			Stdout: baur1.NewStream(os.Stdout),
+			Stderr: baur1.NewStream(os.Stderr),
 		},
 		taskStatusMgr,
-		&digestCalc,
 		&baur1.Uploaders{
 			Filecopy: filecopyUploader,
 			Docker:   dockerUploader,
@@ -234,5 +223,4 @@ func (c *RunOptions) Run(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatalf("running tasks failed: %s\n", err)
 	}
-
 }

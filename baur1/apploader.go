@@ -54,6 +54,8 @@ func FindAndLoadRepositoryConfigCwd() (*cfg.Repository, error) {
 	return repoCfg, nil
 }
 
+// TODO: Refactor AppLoader to be a TaskLoader
+
 // AppLoader discovers, and and loads application configuration files in a repository.
 type AppLoader struct {
 	appCfgLoader   *cfg.AppLoader

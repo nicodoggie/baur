@@ -56,9 +56,8 @@ func Execute() {
 
 	rootCmd.AddCommand(NewRunCommand())
 
-	if err := rootCmd.Execute(); err != nil {
-		log.Fatalln(err)
-	}
+	err := rootCmd.Execute()
+	ExitOnErr(err)
 
 	if cpuProfilingFlag {
 		fmt.Printf("\ncpu profile written to %q\n", defCPUProfFile)

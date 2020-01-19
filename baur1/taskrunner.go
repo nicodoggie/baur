@@ -3,7 +3,6 @@ package baur1
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/url"
 	"path/filepath"
 	"time"
@@ -33,11 +32,6 @@ type Uploaders struct {
 	Filecopy *filecopy.Client
 	Docker   *docker.Client
 	S3       *s3.Client
-}
-
-type OutputStreams struct {
-	Stdout io.WriteCloser
-	Stderr io.WriteCloser
 }
 
 func NewTaskRunner(logger *log.Logger, streams *OutputStreams, statusMgr *TaskStatusManager, uploaders *Uploaders) *TaskRunner {
@@ -93,13 +87,11 @@ type taskRun struct {
 	outputs          []Output
 }
 
-// TODO: streams neeed to be protected with a lock, because we write to it from goroutines, best is to have a constructor for the streams struct that wraps the writer in a write method with a lock
-
 func (t *TaskRunner) filterTasks(tasks []*Task, runFilter RunFilter) ([]*taskRun, error) {
 	var result []*taskRun
 
 	// TODO: improve this output message, if we run it with forceFlag it's not clear from the message why the status is still evaluated
-	fmt.Fprintf(t.streams.Stdout, "Evaluating status of tasks:\n")
+	t.streams.Stdout.Printf("Evaluating status of tasks:\n")
 
 	// TODO: do not query database when --force is passed, not needed
 	for _, task := range tasks {
@@ -109,9 +101,9 @@ func (t *TaskRunner) filterTasks(tasks []*Task, runFilter RunFilter) ([]*taskRun
 		}
 
 		if status == TaskStatusExecutionExist {
-			fmt.Fprintf(t.streams.Stdout, "%s => %s (%s)\n", task, status.ColoredString(), term.GreenHighlight(id))
+			t.streams.Stdout.Printf("%s => %s (%s)\n", task, status.ColoredString(), term.GreenHighlight(id))
 		} else {
-			fmt.Fprintf(t.streams.Stdout, "%s => %s\n", task, status.ColoredString())
+			t.streams.Stdout.Printf("%s => %s\n", task, status.ColoredString())
 		}
 
 		if runFilter == RunFilterAlways || (runFilter == RunFilterOnlyPendingTasks && status == TaskStatusExecutionPending) {
@@ -123,19 +115,19 @@ func (t *TaskRunner) filterTasks(tasks []*Task, runFilter RunFilter) ([]*taskRun
 		}
 	}
 
-	fmt.Fprintln(t.streams.Stdout)
+	t.streams.Stdout.Println()
 
 	switch runFilter {
 	case RunFilterAlways:
 		// TODO: improve this output message somehow
-		fmt.Fprintf(t.streams.Stdout, "Running all (%d) tasks independent of their status.\n", len(result))
+		t.streams.Stdout.Printf("Running all (%d) tasks independent of their status.\n", len(result))
 	case RunFilterOnlyPendingTasks:
-		fmt.Fprintf(t.streams.Stdout, "Running %d task(s) with status %s.\n", len(result), TaskStatusExecutionPending.ColoredString())
+		t.streams.Stdout.Printf("Running %d task(s) with status %s.\n", len(result), TaskStatusExecutionPending.ColoredString())
 	default:
 		return nil, fmt.Errorf("undefined RunFilter value %d passed", runFilter)
 	}
 
-	term.PrintSep(t.streams.Stdout)
+	t.streams.Stdout.PrintSep()
 
 	return result, nil
 }
@@ -159,7 +151,7 @@ func (t *TaskRunner) Run(tasks []*Task, runFilter RunFilter, skipUploading bool)
 	uploadCnt := t.uploadCount(taskRuns)
 
 	if skipUploading {
-		fmt.Fprintf(t.streams.Stdout, "tasks outputs will not be uploaded\n")
+		t.streams.Stdout.Printf("tasks outputs will not be uploaded\n")
 	} else {
 		var err error
 
@@ -194,6 +186,7 @@ func (t *TaskRunner) Run(tasks []*Task, runFilter RunFilter, skipUploading bool)
 		taskRun.outputs = outputs
 
 		if !skipUploading {
+			// TODO: add Upload() method to output and use a simple worker pool to do uploads in the background?
 			t.queueOutputUploads(taskRun, uploader)
 		}
 
@@ -234,14 +227,14 @@ func (t *TaskRunner) recordTaskRun(taskRun *taskRun) error {
 		outputDigest, err := uploadJob.Output.Digest()
 		if err != nil {
 			err := fmt.Errorf("calculating digest for output %q failed: %w", uploadJob.Output, err)
-			fmt.Fprintf(t.streams.Stderr, "%s: %s\n", taskRun.task, err)
+			t.streams.Stderr.TaskPrintf(taskRun.task, "%s\n", err)
 			return err
 		}
 
 		outputSize, err := uploadJob.Output.Size()
 		if err != nil {
-			err := fmt.Errorf(" digest for output %q failed: %w", uploadJob.Output, err)
-			fmt.Fprintf(t.streams.Stderr, "%s: %s\n", taskRun.task, err)
+			err := fmt.Errorf("digest for output %q failed: %w", uploadJob.Output, err)
+			t.streams.Stderr.TaskPrintf(taskRun.task, "%s\n", err)
 			return err
 		}
 
@@ -294,7 +287,7 @@ func (t *TaskRunner) recordTaskRun(taskRun *taskRun) error {
 		digest, err := input.Digest()
 		if err != nil {
 			err := fmt.Errorf("retrieving digest for input %q failed: %w", input, err)
-			fmt.Fprintf(t.streams.Stderr, "%s: %s\n", taskRun.task, err)
+			t.streams.Stderr.TaskPrintf(taskRun.task, "%s\n", taskRun.task, err)
 			return err
 		}
 
@@ -321,11 +314,11 @@ func (t *TaskRunner) recordTaskRun(taskRun *taskRun) error {
 
 	err := t.statusMgr.store.Save(&b)
 	if err != nil {
-		fmt.Fprintf(t.streams.Stderr, "%s: recording task run in database failed: %s\n", taskRun.task, err)
+		t.streams.Stderr.TaskPrintf(taskRun.task, "recording task run in database failed: %s\n", err)
 		return err
 	}
 
-	fmt.Fprintf(t.streams.Stdout, "%s: task run stored in database (id: %d)\n", taskRun.task.ID(), b.ID)
+	t.streams.Stdout.TaskPrintf(taskRun.task, "task run stored in database (id: %d)\n", b.ID)
 
 	return nil
 
@@ -355,19 +348,16 @@ func (t *TaskRunner) processUploads(ctx context.Context, uploadResultChan <-chan
 
 			task := job.TaskRun.task
 
-			// TODO: forward errors to caller Run() routine
 			if res.Error != nil {
-				err := fmt.Errorf("%s: upload failed: %s", task, res.Error)
+				t.streams.Stderr.TaskPrintf(task, "upload: failed: %s", res.Error)
 
-				fmt.Fprintf(t.streams.Stderr, err.Error())
-
-				errors = append(errors, err)
+				errors = append(errors, fmt.Errorf("%s: upload failed: %w", task, res.Error))
 
 				continue
 			}
 
-			fmt.Fprintf(t.streams.Stdout, "%s: %s uploaded to %s (%.3f)\n",
-				task, res.Job.Source(), res.URL, res.EndTime.Sub(res.StartTime).Seconds())
+			t.streams.Stdout.TaskPrintf(task, "%s uploaded to %s (%.3f)\n",
+				res.Job.Source(), res.URL, res.EndTime.Sub(res.StartTime).Seconds())
 
 			job.TaskRun.finishedUploads = append(job.TaskRun.finishedUploads, res)
 
@@ -376,6 +366,9 @@ func (t *TaskRunner) processUploads(ctx context.Context, uploadResultChan <-chan
 				task, len(job.TaskRun.finishedUploads), expectedOutputCnt)
 
 			if len(job.TaskRun.finishedUploads) != expectedOutputCnt {
+				// wait until all outputs of the task finished
+				// uploading before recording the result in the
+				// db
 				continue
 			}
 
@@ -385,27 +378,6 @@ func (t *TaskRunner) processUploads(ctx context.Context, uploadResultChan <-chan
 			}
 		}
 	}
-}
-
-type UploadJob struct {
-	ID      string
-	TaskRun *taskRun
-	Output  Output
-
-	Src  string
-	Dest *url.URL
-}
-
-func (u *UploadJob) String() string {
-	return u.ID
-}
-
-func (u *UploadJob) Source() string {
-	return u.Src
-}
-
-func (u *UploadJob) Destination() *url.URL {
-	return u.Dest
 }
 
 func (t *TaskRunner) run(taskRun *taskRun) ([]Output, error) {
@@ -422,11 +394,11 @@ func (t *TaskRunner) run(taskRun *taskRun) ([]Output, error) {
 	taskRun.runStopTs = time.Now()
 
 	if err != nil {
-		fmt.Fprintf(t.streams.Stderr, "%s: %s", task, err)
+		t.streams.Stderr.Printf("%s: %s", task, err)
 		return nil, err
 	}
 
-	fmt.Fprintf(t.streams.Stdout, "%s: task execution successful (%s)\n", task, term.SecondDuration(taskRun.runStopTs.Sub(taskRun.runStartTs)))
+	t.streams.Stdout.Printf("%s: task execution successful (%s)\n", task, term.SecondDuration(taskRun.runStopTs.Sub(taskRun.runStartTs)))
 
 	outputs, err := OutputsFromTask(t.uploaders.Docker, task)
 	if len(outputs) == 0 {
@@ -439,14 +411,14 @@ func (t *TaskRunner) run(taskRun *taskRun) ([]Output, error) {
 		exist, err := output.Exists()
 		if err != nil {
 			err := fmt.Errorf("%s: checking if output %q exist failed: %w", task, output, err)
-			fmt.Fprintf(t.streams.Stderr, "%s\n", err)
+			t.streams.Stderr.Printf("%s\n", err)
 
 			return nil, err
 		}
 
 		if !exist {
-			err := fmt.Errorf("output %q was not created by task run", task, output)
-			fmt.Fprintf(t.streams.Stderr, "%s: %s\n", task, err)
+			err := fmt.Errorf("output %q was not created by task run", output)
+			t.streams.Stderr.Printf("%s: %s\n", task, err)
 
 			return nil, err
 		}
@@ -470,4 +442,25 @@ func (t *TaskRunner) queueOutputUploads(taskRun *taskRun, uploader *scheduler.Se
 			Output:  output,
 		})
 	}
+}
+
+type UploadJob struct {
+	ID      string
+	TaskRun *taskRun
+	Output  Output
+
+	Src  string
+	Dest *url.URL
+}
+
+func (u *UploadJob) String() string {
+	return u.ID
+}
+
+func (u *UploadJob) Source() string {
+	return u.Src
+}
+
+func (u *UploadJob) Destination() *url.URL {
+	return u.Dest
 }

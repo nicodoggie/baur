@@ -11,7 +11,6 @@ import (
 	"github.com/simplesurance/baur/command/util"
 	"github.com/simplesurance/baur/log"
 	"github.com/simplesurance/baur/storage"
-	"github.com/simplesurance/baur/term"
 )
 
 const verifyLongHelp = `
@@ -107,7 +106,7 @@ func verify(cmd *cobra.Command, args []string) {
 	}
 
 	if issuesFound {
-		term.PrintSep(os.Stdout)
+		//term.PrintSep(os.Stdout)
 		fmt.Println(util.RedHighlight("Issues found"))
 		fmt.Printf("\nPossible reasons:\n")
 		fmt.Println("- builds are not reproducible, ensure a builds with the same inputs produce outputs with the same digest")
@@ -116,6 +115,6 @@ func verify(cmd *cobra.Command, args []string) {
 		os.Exit(verifyExitCodeIssuesFound)
 	}
 
-	term.PrintSep(os.Stdout)
+	//term.PrintSep(os.Stdout)
 	fmt.Println(util.GreenHighlight("No issues found"))
 }

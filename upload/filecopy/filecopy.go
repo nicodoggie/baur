@@ -86,7 +86,7 @@ func (c *Client) Upload(_ context.Context, src string, dest *url.URL) (string, e
 		}
 	}
 
-	regFile, err := fs.IsRegularFile(fpath)
+	regFile, err := fs.IsFile(fpath)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return "", err

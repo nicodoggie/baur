@@ -21,8 +21,6 @@ type OutputDockerImage struct {
 	digest            *digest.Digest
 }
 
-// TODO: make the hasher implementation exchangeable
-
 func NewOutputDockerImageFromIIDFile(dockerClient DockerInfoClient, iidfile string, uploadDestination *url.URL) (*OutputDockerImage, error) {
 	id, err := fs.FileReadLine(iidfile)
 	if err != nil {

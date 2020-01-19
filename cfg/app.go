@@ -160,34 +160,7 @@ func AppFromFile(path string) (*App, error) {
 		return nil, err
 	}
 
-	for _, task := range config.Tasks {
-		if (task.Output) != nil {
-			task.Output.removeEmptySections()
-		}
-	}
-
 	return &config, err
-}
-
-// removeEmptySections removes elements from slices of the that are empty.
-// This is a workaround for https://github.com/pelletier/go-toml/issues/216
-// It prevents that slices are commented in created Example configurations.
-// To prevent that we have empty elements in the slice that we process later and
-// validate, remove them from the config
-func (o *Output) removeEmptySections() {
-	fileOutputs := make([]*FileOutput, 0, len(o.File))
-	dockerImageOutputs := make([]*DockerImageOutput, 0, len(o.DockerImage))
-
-	for _, f := range o.File {
-		fileOutputs = append(fileOutputs, f)
-	}
-
-	for _, d := range o.DockerImage {
-		dockerImageOutputs = append(dockerImageOutputs, d)
-	}
-
-	o.File = fileOutputs
-	o.DockerImage = dockerImageOutputs
 }
 
 // ToFile writes an exemplary Application configuration file to

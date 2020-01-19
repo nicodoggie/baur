@@ -101,7 +101,6 @@ func (t *TaskStatusManager) FilterTasks(tasks []*Task, status TaskStatus) ([]*Ta
 }
 
 // TODO: make []*Inputs a custom type and store in it the totalInputDigest? Analog to InputFile?
-// TODO: remove this function?
 func (t *TaskStatusManager) Status(task *Task) (TaskStatus, []*InputFile, *digest.Digest, int, error) {
 	inputs, err := t.inputResolver.Resolve(t.repositoryDir, task)
 	if err != nil {
