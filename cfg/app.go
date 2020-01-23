@@ -3,10 +3,14 @@ package cfg
 import (
 	"fmt"
 	"io/ioutil"
-	"strings"
 
 	"github.com/pelletier/go-toml"
 )
+
+/* TODO:
+- Update field documentation to list correctly which ones supporting which variables
+- Ensure we do not call Validate or Merge on Nil structs
+*/
 
 type Tasks []*Task
 
@@ -35,7 +39,7 @@ type Input struct {
 
 // GolangSources specifies inputs for Golang Applications
 type GolangSources struct {
-	Environment []string `toml:"environment" comment:"Environment to use when discovering Golang source files\n This can be environment variables understood by the Golang tools, like GOPATH, GOFLAGS, etc.\n If empty the default Go environment is used.\n Valid variables: $ROOT " commented:"true"`
+	Environment []string `toml:"environment" comment:"Environment to use when discovering Golang source files\n This can be environment variables understood by the Golang tools, like GOPATH, GOFLAGS, etc.\n If empty the default Go environment is used.\n Valid variables: $ROOT" commented:"true"`
 	Paths       []string `toml:"paths" comment:"Paths to directories containing Golang source files.\n All source files including imported packages are discovered,\n files from Go's stdlib package and testfiles are ignored." commented:"true"`
 }
 
@@ -169,211 +173,6 @@ func (a *App) ToFile(filepath string) error {
 	return toFile(a, filepath, false)
 }
 
-// Validate validates a App configuration
-func (a *App) Validate() error {
-	if len(a.Name) == 0 {
-		return &ValidationError{
-			ElementPath: []string{"name"},
-			Message:     "can not be empty",
-		}
-	}
-
-	if err := a.Tasks.Validate(); err != nil {
-		return PrependValidationErrorPath(err, "Tasks")
-	}
-
-	return nil
-}
-
-func (tasks Tasks) Validate() error {
-	if len(tasks) != 1 {
-		return &ValidationError{
-			Message: fmt.Sprintf("must contain exactly 1 Task definition, has %d", len(tasks)),
-		}
-	}
-
-	duplMap := make(map[string]struct{}, len(tasks))
-
-	for _, task := range tasks {
-		_, exist := duplMap[task.Name]
-		if exist {
-			return &ValidationError{
-				ElementPath: []string{"Task", "name"},
-				Message:     fmt.Sprintf("multiple tasks with name '%s' exist, task names must be unique", task.Name),
-			}
-		}
-		duplMap[task.Name] = struct{}{}
-
-		err := task.Validate()
-		if err != nil {
-			if task.Name == "" {
-				return PrependValidationErrorPath(err, "Task")
-			}
-
-			return PrependValidationErrorPath(err, fmt.Sprintf("Task(name: %s)", task.Name))
-		}
-	}
-
-	return nil
-}
-
-// Validate validates the task section
-func (t *Task) Validate() error {
-	if len(t.Command) == 0 {
-		return &ValidationError{
-			ElementPath: []string{"command"},
-			Message:     fmt.Sprintf("can not be empty"),
-		}
-	}
-
-	// TODO: change it to check for an invalid name when we support multiple tasks
-	if t.Name != "build" {
-		return &ValidationError{
-			ElementPath: []string{"name"},
-			Message:     "name must be 'build'",
-		}
-	}
-
-	if t.Input == nil {
-		return &ValidationError{
-			ElementPath: []string{"Input"},
-			Message:     "section is empty",
-		}
-	}
-
-	if err := t.Input.Validate(); err != nil {
-		return PrependValidationErrorPath(err, "Input")
-	}
-
-	if t.Output == nil {
-		return &ValidationError{
-			ElementPath: []string{"Output"},
-			Message:     "section is empty",
-		}
-	}
-
-	if err := t.Output.Validate(); err != nil {
-		return PrependValidationErrorPath(err, "Output")
-	}
-
-	return nil
-}
-
-func (t *Task) Merge(includeDB *IncludeDB) error {
-	for _, includeID := range t.Includes {
-		if include, exist := includeDB.Inputs[includeID]; exist {
-			t.Input.Merge(include.Input)
-			continue
-		}
-
-		if include, exist := includeDB.Outputs[includeID]; exist {
-			t.Output.Merge(include.Output)
-			continue
-		}
-
-		return fmt.Errorf("could not find include with id '%s'", includeID)
-	}
-
-	return nil
-
-}
-
-// Merge for each ID in the Includes slice a TasksInclude in the includedb is looked up.
-// The tasks of the found TasksInclude are appended to the Apps Tasks slice.
-func (a *App) Merge(includedb *IncludeDB) error {
-	for _, includeID := range a.Includes {
-		include, exist := includedb.Tasks[includeID]
-		if !exist {
-			return fmt.Errorf("could not find include with id '%s'", includeID)
-		}
-
-		a.Tasks = append(a.Tasks, include.Tasks...)
-
-		// TODO: store the repository relative cfg path in the include somehow
-		//task.Input.Files.Paths = append(task.Input.Files.Paths, include.RelCfgPath)
-	}
-
-	for _, task := range a.Tasks {
-		if err := task.Merge(includedb); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// Merge merges the Input with another one.
-func (i *Input) Merge(other *Input) {
-	i.Files.Merge(&other.Files)
-	i.GitFiles.Merge(&other.GitFiles)
-	i.GolangSources.Merge(&other.GolangSources)
-}
-
-// Validate validates the Input section
-func (i *Input) Validate() error {
-	if err := i.Files.Validate(); err != nil {
-		return PrependValidationErrorPath(err, "Files")
-	}
-
-	if err := i.GolangSources.Validate(); err != nil {
-		return PrependValidationErrorPath(err, "GolangSources")
-	}
-
-	// TODO: add validation for gitfiles section
-
-	return nil
-}
-
-// Validate validates the GolangSources section
-func (g *GolangSources) Validate() error {
-	if len(g.Environment) != 0 && len(g.Paths) == 0 {
-		return &ValidationError{
-			ElementPath: []string{"paths"},
-			Message:     "must be set if environment is set",
-		}
-	}
-
-	for _, p := range g.Paths {
-		if len(p) == 0 {
-			return &ValidationError{
-				ElementPath: []string{"paths"},
-				Message:     "empty string is an invalid path",
-			}
-		}
-	}
-
-	return nil
-}
-
-// Merge merges the two GolangSources structs
-func (g *GolangSources) Merge(other *GolangSources) {
-	g.Paths = append(g.Paths, other.Paths...)
-	g.Environment = append(g.Environment, other.Environment...)
-}
-
-// Merge merges the two Output structs
-func (o *Output) Merge(other *Output) {
-	o.DockerImage = append(o.DockerImage, other.DockerImage...)
-	o.File = append(o.File, other.File...)
-}
-
-// Validate validates the Output section
-func (o *Output) Validate() error {
-	for _, f := range o.File {
-		if err := f.Validate(); err != nil {
-			return PrependValidationErrorPath(err, "File")
-		}
-	}
-
-	for _, d := range o.DockerImage {
-		if err := d.Validate(); err != nil {
-			return PrependValidationErrorPath(err, "DockerImage")
-		}
-	}
-
-	return nil
-}
-
 // IsEmpty returns true if FileCopy is empty
 func (f *FileCopy) IsEmpty() bool {
 	return len(f.Path) == 0
@@ -384,108 +183,7 @@ func (s *S3Upload) IsEmpty() bool {
 	return len(s.Bucket) == 0 && len(s.DestFile) == 0
 }
 
-// Validate validates a [[Task.Output.File]] section
-func (f *FileOutput) Validate() error {
-	if len(f.Path) == 0 {
-		return &ValidationError{
-			ElementPath: []string{"path"},
-			Message:     "can not be empty",
-		}
-	}
-
-	return f.S3Upload.Validate()
-}
-
 //IsEmpty returns true if the struct is empty
 func (d *DockerImageRegistryUpload) IsEmpty() bool {
 	return len(d.Repository) == 0 && len(d.Tag) == 0
-}
-
-// Validate validates a [[Task.Output.File]] section
-func (s *S3Upload) Validate() error {
-	if s.IsEmpty() {
-		return nil
-	}
-
-	if len(s.DestFile) == 0 {
-		return &ValidationError{
-			ElementPath: []string{"destfile"},
-			Message:     "can not be empty",
-		}
-	}
-
-	if len(s.Bucket) == 0 {
-		return &ValidationError{
-			ElementPath: []string{"bucket"},
-			Message:     "can not be empty",
-		}
-	}
-
-	return nil
-}
-
-// Validate validates its content
-func (d *DockerImageOutput) Validate() error {
-	if len(d.IDFile) == 0 {
-		return &ValidationError{
-			ElementPath: []string{"idfile"},
-			Message:     "can not be empty",
-		}
-	}
-
-	if err := d.RegistryUpload.Validate(); err != nil {
-		return PrependValidationErrorPath(err, "RegistryUpload")
-	}
-
-	return nil
-}
-
-// Validate validates its content
-func (d *DockerImageRegistryUpload) Validate() error {
-	if len(d.Repository) == 0 {
-		return &ValidationError{
-			ElementPath: []string{"repository"},
-			Message:     "can not be empty",
-		}
-	}
-
-	if len(d.Tag) == 0 {
-		return &ValidationError{
-			ElementPath: []string{"tag"},
-			Message:     "can not be empty",
-		}
-	}
-
-	return nil
-}
-
-// Merge merges 2 FileInputs structs
-func (f *FileInputs) Merge(other *FileInputs) {
-	f.Paths = append(f.Paths, other.Paths...)
-}
-
-// Validate validates a [[Sources.Files]] section
-func (f *FileInputs) Validate() error {
-	for _, path := range f.Paths {
-		if len(path) == 0 {
-			return &ValidationError{
-				ElementPath: []string{"path"},
-				Message:     "can not be empty",
-			}
-
-		}
-		if strings.Count(path, "**") > 1 {
-			return &ValidationError{
-				ElementPath: []string{"path"},
-				Message:     "'**' can only appear one time in a path",
-			}
-		}
-	}
-
-	return nil
-}
-
-// Merge merges two GitFileInputs structs
-func (g *GitFileInputs) Merge(other *GitFileInputs) {
-	g.Paths = append(g.Paths, other.Paths...)
 }

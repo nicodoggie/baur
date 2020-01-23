@@ -140,7 +140,7 @@ func (a *App) addCfgsToBuildInputs(appCfg *cfg.App) {
 
 // NewApp reads the configuration file and returns a new App
 func NewApp(repository *Repository, cfgPath string) (*App, error) {
-	appCfg, err := repository.appLoader.Load(cfgPath)
+	appCfg, err := cfg.AppFromFile(cfgPath)
 	if err != nil {
 		return nil, errors.Wrapf(err,
 			"reading application config %s failed", cfgPath)

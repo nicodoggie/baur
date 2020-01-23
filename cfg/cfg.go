@@ -9,25 +9,30 @@ import (
 	"github.com/pkg/errors"
 )
 
-type ValidationError struct {
+type FieldError struct {
 	ElementPath []string
-	Message     string
+	err         error
 }
 
-func (v *ValidationError) Error() string {
-	return fmt.Sprintf("%s: %s", strings.Join(v.ElementPath, "."), v.Message)
+func (f *FieldError) Error() string {
+	return fmt.Sprintf("%s: %s", strings.Join(f.ElementPath, "."), f.err)
 }
 
-// PrependValidationErrorpath if the passed error has the *ValidationError, the
-// passed path is prepended to it's ElementPath field.
-// The function returns the passed validationError.
-func PrependValidationErrorPath(validationError error, path ...string) error {
-	valError, ok := validationError.(*ValidationError)
+// NewFieldError creates a new FieldError that wraps the passed error if the
+// passed error is not of type FieldError.
+// If it is of type FieldError, the passed paths are prepended to the ElementPath
+// of it.
+func NewFieldError(err error, path ...string) error {
+	valError, ok := err.(*FieldError)
 	if ok {
 		valError.ElementPath = append(path, valError.ElementPath...)
+		return err
 	}
 
-	return validationError
+	return &FieldError{
+		ElementPath: path,
+		err:         err,
+	}
 }
 
 // toFile serializes a struct to TOML format and writes it to a file.

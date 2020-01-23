@@ -16,7 +16,7 @@ import (
 type Repository struct {
 	path      string
 	cfg       *cfg.Repository
-	appLoader *cfg.AppLoader
+	includeDB *cfg.IncludeDB
 
 	gitCommitID        string
 	gitWorktreeIsDirty *bool
@@ -81,7 +81,7 @@ func NewRepository(cfgPath string) (*Repository, error) {
 	// TODO: we should release the memory when it's not used anymore,
 	// either empty the db when it's not used anymore or store it somewhere
 	// else then in the Repository struct
-	r.appLoader = &cfg.AppLoader{IncludeDB: includeDB}
+	r.includeDB = includeDB
 
 	return &r, nil
 }

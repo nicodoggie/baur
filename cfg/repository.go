@@ -1,6 +1,7 @@
 package cfg
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 
@@ -89,23 +90,23 @@ func (r *Repository) FilePath() string {
 // Validate validates a repository configuration
 func (r *Repository) Validate() error {
 	if r.ConfigVersion == 0 {
-		return &ValidationError{
-			ElementPath: []string{"config_version"},
-			Message:     "can not be unset or 0",
-		}
+		return NewFieldError(
+			errors.New("can not be unset or 0"),
+			"config_version",
+		)
 	}
 	if r.ConfigVersion != configVersion {
-		return &ValidationError{
-			ElementPath: []string{"config_version"},
-			Message: fmt.Sprintf("incompatible configuration files\n"+
+		return NewFieldError(
+			fmt.Errorf("incompatible configuration files\n"+
 				"config_version value is %d, expecting version: %d\n"+
 				"Update your baur configuration files or downgrade baur.", r.ConfigVersion, configVersion),
-		}
+			"config_version",
+		)
 	}
 
 	err := r.Discover.Validate()
 	if err != nil {
-		return PrependValidationErrorPath(err, "Discover")
+		return NewFieldError(err, "Discover")
 	}
 
 	return nil
@@ -114,18 +115,18 @@ func (r *Repository) Validate() error {
 // Validate validates the Discover section and sets defaults.
 func (d *Discover) Validate() error {
 	if len(d.Dirs) == 0 {
-		return &ValidationError{
-			ElementPath: []string{"application_dirs"},
-			Message:     "can not be empty",
-		}
+		return NewFieldError(
+			errors.New("can not be empty"),
+			"application_dirs",
+		)
 	}
 
 	if d.SearchDepth < minSearchDepth || d.SearchDepth > maxSearchDepth {
-		return &ValidationError{
-			ElementPath: []string{"search_depth"},
-			Message: fmt.Sprintf("search_depth parameter must be in range (%d, %d]",
+		return NewFieldError(
+			fmt.Errorf("search_depth parameter must be in range (%d, %d]",
 				minSearchDepth, maxSearchDepth),
-		}
+			"search_depth",
+		)
 	}
 
 	return nil

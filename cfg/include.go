@@ -1,7 +1,7 @@
 package cfg
 
 import (
-	"fmt"
+	"errors"
 	"io/ioutil"
 
 	"github.com/pelletier/go-toml"
@@ -114,10 +114,10 @@ func (incl *Include) Validate() error {
 	for _, in := range incl.Inputs {
 		if err := in.Validate(); err != nil {
 			if in.ID != "" {
-				return PrependValidationErrorPath(err, fmt.Sprintf("Inputs(ID:%s)", in.ID))
+				return NewFieldError(err, "Inputs", in.ID)
 			}
 
-			return PrependValidationErrorPath(err, "Inputs")
+			return NewFieldError(err, "Inputs")
 		}
 	}
 
@@ -125,26 +125,24 @@ func (incl *Include) Validate() error {
 		if err := out.Validate(); err != nil {
 
 			if out.ID != "" {
-				return PrependValidationErrorPath(err, fmt.Sprintf("Outputs(ID:%s)", out.ID))
+				return NewFieldError(err, "Outputs", out.ID)
 			}
 
-			return PrependValidationErrorPath(err, "Outputs")
+			return NewFieldError(err, "Outputs")
 		}
 	}
 
 	for _, tasks := range incl.Tasks {
 		if err := tasks.Validate(); err != nil {
 			if tasks.ID != "" {
-				return PrependValidationErrorPath(err, fmt.Sprintf("Tasks(ID:%s)", tasks.ID))
+				return NewFieldError(err, "Tasks", tasks.ID)
 			}
 
-			return PrependValidationErrorPath(err, "Tasks")
+			return NewFieldError(err, "Tasks")
 		}
 
 		if len(incl.Inputs) == 0 && len(incl.Outputs) == 0 && len(incl.Tasks) == 0 {
-			return &ValidationError{
-				Message: "the include does not contain any definition, either an Input, Output or Task must be defined",
-			}
+			return errors.New("the include does not contain any definition, either an Input, Output or Task must be defined")
 		}
 	}
 
@@ -153,21 +151,21 @@ func (incl *Include) Validate() error {
 
 func (in *InputInclude) Validate() error {
 	if in.ID == "" {
-		return &ValidationError{
-			ElementPath: []string{"id"},
-			Message:     "can not be empty",
-		}
+		return NewFieldError(
+			errors.New("can not be empty"),
+			"id",
+		)
 	}
 
 	if in.Input == nil {
-		return &ValidationError{
-			ElementPath: []string{"Input"},
-			Message:     "no input is defined",
-		}
+		return NewFieldError(
+			errors.New("no input is defined"),
+			"Input",
+		)
 	}
 
 	if err := in.Input.Validate(); err != nil {
-		return PrependValidationErrorPath(err, "Input")
+		return NewFieldError(err, "Input")
 	}
 
 	return nil
@@ -175,21 +173,21 @@ func (in *InputInclude) Validate() error {
 
 func (out *OutputInclude) Validate() error {
 	if out.ID == "" {
-		return &ValidationError{
-			ElementPath: []string{"id"},
-			Message:     "can not be empty",
-		}
+		return NewFieldError(
+			errors.New("can not be empty"),
+			"id",
+		)
 	}
 
 	if out.Output == nil {
-		return &ValidationError{
-			ElementPath: []string{"Output"},
-			Message:     "no output is defined",
-		}
+		return NewFieldError(
+			errors.New("no output is defined"),
+			"Output",
+		)
 	}
 
 	if err := out.Validate(); err != nil {
-		return PrependValidationErrorPath(err, "Output")
+		return NewFieldError(err, "Output")
 	}
 
 	return nil
@@ -197,26 +195,26 @@ func (out *OutputInclude) Validate() error {
 
 func (tasks *TasksInclude) Validate() error {
 	if tasks.ID == "" {
-		return &ValidationError{
-			ElementPath: []string{"id"},
-			Message:     "can not be empty",
-		}
+		return NewFieldError(
+			errors.New("can not be empty"),
+			"id",
+		)
 	}
 
 	if len(tasks.Tasks) == 0 {
-		return &ValidationError{
-			ElementPath: []string{fmt.Sprintf("Task(id:%s)", tasks.ID)},
-			Message:     "no output is defined",
-		}
+		return NewFieldError(
+			errors.New("no output is defined"),
+			"Task", tasks.ID,
+		)
 	}
 
 	for _, task := range tasks.Tasks {
 		if err := task.Validate(); err != nil {
 			if task.Name == "" {
-				return PrependValidationErrorPath(err, "Task")
+				return NewFieldError(err, "Task")
 			}
 
-			return PrependValidationErrorPath(err, fmt.Sprintf("Task(name: %s)", task.Name))
+			return NewFieldError(err, "Task", task.Name)
 		}
 	}
 

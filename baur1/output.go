@@ -15,6 +15,17 @@ const (
 	FileOutput
 )
 
+func (o OutputType) String() string {
+	switch o {
+	case DockerOutput:
+		return "docker"
+	case FileOutput:
+		return "file"
+	default:
+		return "invalid OutputType"
+	}
+}
+
 type Output interface {
 	fmt.Stringer
 
@@ -24,7 +35,6 @@ type Output interface {
 	UploadDestination() *url.URL
 	Type() OutputType
 	Size() (int64, error)
-	// UploadMethod
 }
 
 func OutputsFromTask(dockerClient DockerInfoClient, task *Task) ([]Output, error) {

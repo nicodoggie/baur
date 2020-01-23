@@ -58,7 +58,7 @@ func FindAndLoadRepositoryConfigCwd() (*cfg.Repository, error) {
 
 // AppLoader discovers, and and loads application configuration files in a repository.
 type AppLoader struct {
-	appCfgLoader   *cfg.AppLoader
+	includeDB      *cfg.IncludeDB
 	repositoryRoot string
 
 	configPaths []string
@@ -78,7 +78,7 @@ func NewAppLoader(repoCfg *cfg.Repository) (*AppLoader, error) {
 	}
 
 	return &AppLoader{
-		appCfgLoader:   &cfg.AppLoader{IncludeDB: includeDb},
+		includeDB:      includeDb,
 		configPaths:    configPaths,
 		repositoryRoot: repositoryRootDir,
 	}, nil
@@ -119,14 +119,29 @@ func (db *AppLoader) All() ([]*App, error) {
 }
 
 func (db *AppLoader) load(path string) (*App, error) {
-	cfg, err := db.appCfgLoader.Load(path)
+	appCfg, err := cfg.AppFromFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("loading config file %q failed: %w", path, err)
+		return nil, err
+	}
+
+	err = appCfg.ResolveIncludes(cfg.DefaultIncludePathResolvers(db.repositoryRoot))
+	if err != nil {
+		return nil, fmt.Errorf("resolving variables in include paths failed: %w", err)
+	}
+
+	err = appCfg.Merge(db.includeDB)
+	if err != nil {
+		return nil, fmt.Errorf("merging with includes failed: %w", err)
+	}
+
+	err = appCfg.Resolve(cfg.DefaultResolvers(db.repositoryRoot, appCfg.Name))
+	if err != nil {
+		return nil, fmt.Errorf("resolving variables in config failed: %w", err)
 	}
 
 	return &App{
 		repositoryRoot: db.repositoryRoot,
-		cfg:            cfg,
+		cfg:            appCfg,
 		directory:      filepath.Dir(path),
 	}, nil
 }

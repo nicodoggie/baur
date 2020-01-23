@@ -123,6 +123,7 @@ func (c *RunOptions) Run(cmd *cobra.Command, args []string) {
 
 	var apps []*baur1.App
 
+	// TODO: move finding the task for the arg to TaskLoader struct
 	// TODO: improve this if-condition, make it beautiful
 	if len(args) == 0 {
 		var err error
