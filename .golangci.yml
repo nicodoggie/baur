@@ -15,6 +15,7 @@ linters:
     - unused
     - varcheck
     - vet
+    - rowserrcheck
 
 linters-settings:
   goimports:
