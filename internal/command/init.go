@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/simplesurance/baur/command/util"
+	"github.com/simplesurance/baur/internal/command/util"
 	"github.com/spf13/cobra"
 )
 

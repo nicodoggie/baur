@@ -8,7 +8,7 @@ import (
 
 	"github.com/simplesurance/baur"
 	"github.com/simplesurance/baur/baur1"
-	"github.com/simplesurance/baur/command/util"
+	"github.com/simplesurance/baur/internal/command/util"
 	"github.com/simplesurance/baur/digest"
 	"github.com/simplesurance/baur/log"
 	"github.com/simplesurance/baur/resolve/gitpath"

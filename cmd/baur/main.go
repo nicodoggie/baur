@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/simplesurance/baur/command"
+	"github.com/simplesurance/baur/internal/command"
 )
 
 func main() {

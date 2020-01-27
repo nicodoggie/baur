@@ -10,7 +10,7 @@ import (
 
 	"github.com/simplesurance/baur"
 	"github.com/simplesurance/baur/cfg"
-	"github.com/simplesurance/baur/command/util"
+	"github.com/simplesurance/baur/internal/command/util"
 	"github.com/simplesurance/baur/log"
 )
 

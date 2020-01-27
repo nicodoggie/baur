@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/simplesurance/baur/command/util"
 	"github.com/simplesurance/baur/fs"
+	"github.com/simplesurance/baur/internal/command/util"
 	"github.com/simplesurance/baur/log"
 )
 
