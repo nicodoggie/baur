@@ -8,8 +8,10 @@ import (
 
 	"github.com/simplesurance/baur"
 	"github.com/simplesurance/baur/baur1"
-	"github.com/simplesurance/baur/internal/command/util"
+
+	// TODO: not not import the util package, rename it
 	"github.com/simplesurance/baur/digest"
+	"github.com/simplesurance/baur/internal/command/util"
 	"github.com/simplesurance/baur/log"
 	"github.com/simplesurance/baur/resolve/gitpath"
 	"github.com/simplesurance/baur/resolve/glob"
@@ -98,7 +100,6 @@ func NewRunCommand() *cobra.Command {
 }
 
 type execUserData struct {
-	app              *baur1.App
 	task             *baur1.Task
 	inputs           []*baur1.InputFile
 	totalInputDigest *digest.Digest
@@ -116,41 +117,30 @@ func dockerAuthFromEnv() (string, string) {
 func (c *RunOptions) Run(cmd *cobra.Command, args []string) {
 	log.StdLogger.EnableDebug(verboseFlag)
 
+	// TODO: validate syntax of args[0] or the check in taskLoader.Load sufficient?
+	taskSpec := args[0]
+
+	if taskSpec == "" {
+		taskSpec = "*.*"
+	}
+
 	repoCfg, err := baur1.FindAndLoadRepositoryConfigCwd()
 	ExitOnErr(err)
-	appLoader, err := baur1.NewAppLoader(repoCfg)
+
+	repositoryDir := filepath.Dir(repoCfg.FilePath())
+	log.Debugf("found repository root: %q", repositoryDir)
+
+	taskLoader, err := baur1.NewTaskLoader(repoCfg)
 	ExitOnErr(err)
 
-	var apps []*baur1.App
-
-	// TODO: move finding the task for the arg to TaskLoader struct
-	// TODO: improve this if-condition, make it beautiful
-	if len(args) == 0 {
-		var err error
-		apps, err = appLoader.All()
-		if err != nil {
-			log.Fatalln(err)
-		}
-	} else {
-		// TODO handle err and Isfile correctly,
-		if isAppDir(args[0]) {
-			app, err := appLoader.Path(filepath.Join(args[0], baur1.AppCfgFile))
-			ExitOnErr(err)
-			apps = append(apps, app)
-		} else {
-			app, err := appLoader.Name(args[0])
-			ExitOnErr(err)
-			apps = append(apps, app)
-		}
-	}
+	tasks, err := taskLoader.Load(taskSpec)
+	ExitOnErr(err)
 
 	// TODO: use MustGetPostgresClt() instead
 	clt, err := getPostgresCltWithEnv(repoCfg.Database.PGSQLURL)
 	if err != nil {
 		log.Fatalf("could not establish connection to postgreSQL db: %s", err)
 	}
-
-	repositoryDir := filepath.Dir(repoCfg.FilePath())
 
 	inputResolver := baur1.NewInputResolver(
 		log.StdLogger,
@@ -167,9 +157,7 @@ func (c *RunOptions) Run(cmd *cobra.Command, args []string) {
 	)
 
 	s3Uploader, err := s3.NewClient(log.StdLogger)
-	if err != nil {
-		log.Fatalln(err.Error())
-	}
+	ExitOnErr(err)
 
 	var dockerUploader *docker.Client
 	dockerUser, dockerPass := dockerAuthFromEnv()
@@ -202,17 +190,6 @@ func (c *RunOptions) Run(cmd *cobra.Command, args []string) {
 	)
 
 	// TODO: refactor how we retrieve tasks, remove the App struct completly?
-	var tasks []*baur1.Task
-	for _, app := range apps {
-		appTasks, err := app.Tasks()
-
-		if err != nil {
-			log.Fatalf("initializing tasks failed: %s", err)
-		}
-
-		tasks = append(tasks, appTasks...)
-	}
-
 	var filter baur1.RunFilter
 	if c.force {
 		filter = baur1.RunFilterAlways

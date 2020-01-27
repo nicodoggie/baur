@@ -19,6 +19,8 @@ type App struct {
 	Name     string   `toml:"name" comment:"Name of the application"`
 	Includes []string `toml:"includes" comment:"IDs of Tasks includes that the task inherits."`
 	Tasks    Tasks    `toml:"Task"`
+
+	filepath string
 }
 
 // Task is a task section
@@ -164,6 +166,8 @@ func AppFromFile(path string) (*App, error) {
 		return nil, err
 	}
 
+	config.filepath = path
+
 	return &config, err
 }
 
@@ -171,6 +175,11 @@ func AppFromFile(path string) (*App, error) {
 // filepath. The name setting is set to appName
 func (a *App) ToFile(filepath string) error {
 	return toFile(a, filepath, false)
+}
+
+// FilePath returns the path of the loaded config file
+func (a *App) FilePath() string {
+	return a.filepath
 }
 
 // IsEmpty returns true if FileCopy is empty

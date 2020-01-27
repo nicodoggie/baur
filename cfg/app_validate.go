@@ -12,6 +12,10 @@ func (a *App) Validate() error {
 		return NewFieldError(errors.New("can not be empty"), "name")
 	}
 
+	if strings.Contains(a.Name, ".") {
+		return NewFieldError(errors.New("dots are not allowed in application names"), "name")
+	}
+
 	if err := a.Tasks.Validate(); err != nil {
 		return NewFieldError(err, "Tasks")
 	}
@@ -64,6 +68,10 @@ func (t *Task) Validate() error {
 			errors.New("name must be 'build'"),
 			"name",
 		)
+	}
+
+	if strings.Contains(t.Name, ".") {
+		return NewFieldError(errors.New("dots are not allowed in task names"), "name")
 	}
 
 	if t.Input == nil {
