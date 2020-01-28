@@ -10,7 +10,7 @@ import (
 	"github.com/simplesurance/baur/baur1"
 
 	// TODO: not not import the util package, rename it
-	"github.com/simplesurance/baur/digest"
+
 	"github.com/simplesurance/baur/internal/command/util"
 	"github.com/simplesurance/baur/log"
 	"github.com/simplesurance/baur/resolve/gitpath"
@@ -97,12 +97,6 @@ func NewRunCommand() *cobra.Command {
 
 	return &cmd
 
-}
-
-type execUserData struct {
-	task             *baur1.Task
-	inputs           []*baur1.InputFile
-	totalInputDigest *digest.Digest
 }
 
 const (
