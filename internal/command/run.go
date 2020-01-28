@@ -183,7 +183,6 @@ func (c *RunOptions) Run(cmd *cobra.Command, args []string) {
 		},
 	)
 
-	// TODO: refactor how we retrieve tasks, remove the App struct completly?
 	var filter baur1.RunFilter
 	if c.force {
 		filter = baur1.RunFilterAlways
