@@ -20,9 +20,10 @@ const (
 // Repository contains the repository configuration.
 type Repository struct {
 	ConfigVersion int      `toml:"config_version" comment:"Version of baur configuration format"`
-	Database      Database `toml:"Database"`
-	Discover      Discover `comment:"Application discovery settings"`
 	IncludeDirs   []string `toml:"include_dirs" comment:"Repository-relative paths to directories containing include files"`
+
+	Database Database
+	Discover Discover `toml:"Discover" comment:"Application discovery settings"`
 
 	filePath string
 }
@@ -69,9 +70,6 @@ func ExampleRepository() *Repository {
 
 		Database: Database{
 			PGSQLURL: "postgres://postgres@localhost:5432/baur?sslmode=disable&connect_timeout=5",
-		},
-		IncludeDirs: []string{
-			"baur_includes/",
 		},
 	}
 }

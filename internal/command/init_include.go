@@ -3,6 +3,7 @@ package command
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -39,7 +40,9 @@ func initInclude(cmd *cobra.Command, args []string) {
 		filename = defIncludeFilename
 	}
 
-	cfg := cfg.ExampleInclude()
+	includeID := strings.TrimSuffix(filename, filepath.Ext(filename))
+
+	cfg := cfg.ExampleInclude(includeID)
 	err := cfg.IncludeToFile(filename)
 	if err != nil {
 		if os.IsExist(err) {

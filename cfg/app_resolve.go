@@ -6,6 +6,8 @@ func DefaultIncludePathResolvers(rootPath string) Resolver {
 	return NewRootVarResolver(rootPath)
 }
 
+// TODO: ResolveIncludes is not needed, includes are spefified by ID not by path :|
+
 // DefaultResolvers returns the default set of resolvers.
 func DefaultResolvers(rootPath, appName string) Resolver {
 	return Resolvers{
@@ -81,6 +83,10 @@ func (t *Task) Resolve(resolvers Resolver) error {
 
 	if err := t.Input.Resolve(resolvers); err != nil {
 		return NewFieldError(err, "Input")
+	}
+
+	if t.Output == nil {
+		return nil
 	}
 
 	if err := t.Output.Resolve(resolvers); err != nil {

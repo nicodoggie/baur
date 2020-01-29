@@ -12,6 +12,7 @@ import (
 	"github.com/simplesurance/baur/cfg"
 	"github.com/simplesurance/baur/internal/command/util"
 	"github.com/simplesurance/baur/log"
+	"github.com/simplesurance/baur/prettyprint"
 )
 
 func init() {
@@ -46,6 +47,7 @@ func initRepo(cmd *cobra.Command, args []string) {
 	}
 
 	repoCfg := cfg.ExampleRepository()
+	fmt.Println(prettyprint.AsString(repoCfg))
 	repoCfgPath := path.Join(repoDir, baur.RepositoryCfgFile)
 
 	err = repoCfg.ToFile(repoCfgPath, false)

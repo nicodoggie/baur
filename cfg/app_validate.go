@@ -24,9 +24,9 @@ func (a *App) Validate() error {
 }
 
 func (tasks Tasks) Validate() error {
-	if len(tasks) != 1 {
-		// Is wrapped into PathError with path "Tasks" by the App.Validate() caller
-		return fmt.Errorf("must contain exactly 1 Task definition, has %d", len(tasks))
+	if len(tasks) == 0 {
+		// The returned error is wrapped into a FieldError by the App.Validate() caller
+		return fmt.Errorf("contains 0 task definition, >0 must be defined")
 	}
 
 	duplMap := make(map[string]struct{}, len(tasks))
@@ -36,7 +36,7 @@ func (tasks Tasks) Validate() error {
 		if exist {
 			return NewFieldError(
 				fmt.Errorf("multiple tasks with name '%s' exist, task names must be unique", task.Name),
-				"Task", task.Name,
+				"Task",
 			)
 		}
 		duplMap[task.Name] = struct{}{}
@@ -44,7 +44,7 @@ func (tasks Tasks) Validate() error {
 		err := task.Validate()
 		if err != nil {
 			return NewFieldError(
-				fmt.Errorf("multiple tasks with name '%s' exist, task names must be unique", task.Name),
+				err,
 				"Task", task.Name,
 			)
 		}
@@ -59,14 +59,6 @@ func (t *Task) Validate() error {
 		return NewFieldError(
 			errors.New("can not be empty"),
 			"command",
-		)
-	}
-
-	// TODO: change it to check for an invalid name when we support multiple tasks
-	if t.Name != "build" {
-		return NewFieldError(
-			errors.New("name must be 'build'"),
-			"name",
 		)
 	}
 
@@ -86,10 +78,7 @@ func (t *Task) Validate() error {
 	}
 
 	if t.Output == nil {
-		return NewFieldError(
-			errors.New("section is empty"),
-			"Output",
-		)
+		return nil
 	}
 
 	if err := t.Output.Validate(); err != nil {

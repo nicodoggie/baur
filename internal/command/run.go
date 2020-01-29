@@ -79,10 +79,10 @@ type RunOptions struct {
 }
 
 func NewRunCommand() *cobra.Command {
-	opts := RunOptions{}
+	var opts RunOptions
 
 	cmd := cobra.Command{
-		Use:     "run [<TASK-SPECIFIER>]",
+		Use:     "run [<PATH>|<TASK-SPEC>]",
 		Short:   "run tasks",
 		Long:    strings.TrimSpace(runLongHelp),
 		Run:     opts.Run,
@@ -96,7 +96,6 @@ func NewRunCommand() *cobra.Command {
 		"force rebuilding of tasks with status "+baur.BuildStatusExist.String())
 
 	return &cmd
-
 }
 
 const (
@@ -108,26 +107,11 @@ func dockerAuthFromEnv() (string, string) {
 	return os.Getenv(dockerEnvUsernameVar), os.Getenv(dockerEnvPasswordVar)
 }
 
-func (c *RunOptions) Run(cmd *cobra.Command, args []string) {
-	log.StdLogger.EnableDebug(verboseFlag)
-
+func (c *RunOptions) Run(_ *cobra.Command, args []string) {
 	// TODO: validate syntax of args[0] or the check in taskLoader.Load sufficient?
-	taskSpec := args[0]
+	repoCfg, taskLoader := MustInitRepoAndTaskLoader()
 
-	if taskSpec == "" {
-		taskSpec = "*.*"
-	}
-
-	repoCfg, err := baur1.FindAndLoadRepositoryConfigCwd()
-	ExitOnErr(err)
-
-	repositoryDir := filepath.Dir(repoCfg.FilePath())
-	log.Debugf("found repository root: %q", repositoryDir)
-
-	taskLoader, err := baur1.NewTaskLoader(repoCfg)
-	ExitOnErr(err)
-
-	tasks, err := taskLoader.Load(taskSpec)
+	tasks, err := taskLoader.Load(args[0])
 	ExitOnErr(err)
 
 	// TODO: use MustGetPostgresClt() instead
@@ -142,6 +126,8 @@ func (c *RunOptions) Run(cmd *cobra.Command, args []string) {
 		&gitpath.Resolver{},
 		gosource.NewResolver(log.StdLogger.Debugf),
 	)
+
+	repositoryDir := filepath.Dir(repoCfg.FilePath())
 
 	taskStatusMgr := baur1.NewTaskStatusManager(
 		repositoryDir,

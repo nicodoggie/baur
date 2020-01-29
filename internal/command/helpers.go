@@ -4,12 +4,16 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/simplesurance/baur"
-	"github.com/simplesurance/baur/internal/command/util"
+	"github.com/simplesurance/baur/baur1"
+	"github.com/simplesurance/baur/cfg"
 	"github.com/simplesurance/baur/format"
 	"github.com/simplesurance/baur/fs"
+	"github.com/simplesurance/baur/internal/command/util"
 	"github.com/simplesurance/baur/log"
 	"github.com/simplesurance/baur/storage"
 	"github.com/simplesurance/baur/storage/postgres"
@@ -23,7 +27,7 @@ func findRepository() (*baur.Repository, error) {
 		return nil, err
 	}
 
-	log.Debugf("repository root found: %s", repo.Path)
+	log.Debugf("repository root found: %s", repo.Path())
 
 	return repo, nil
 }
@@ -196,7 +200,44 @@ func durationToStrSeconds(duration time.Duration) string {
 
 func ExitOnErr(err error) {
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, color.New(color.FgRed).Sprint("ERROR:"), err)
 		os.Exit(1)
 	}
+}
+
+func MustInitRepoAndTaskLoader() (*cfg.Repository, *baur1.TaskLoader) {
+	repoCfg, err := baur1.FindAndLoadRepositoryConfigCwd()
+	ExitOnErr(err)
+
+	taskLoader, err := baur1.NewTaskLoader(repoCfg)
+	ExitOnErr(err)
+
+	repositoryDir := filepath.Dir(repoCfg.FilePath())
+	log.Debugf("found repository root: %q", repositoryDir)
+
+	return repoCfg, taskLoader
+}
+
+func MustArgToTasks(args []string) (*cfg.Repository, []*baur1.Task) {
+	repoCfg, err := baur1.FindAndLoadRepositoryConfigCwd()
+	ExitOnErr(err)
+
+	taskLoader, err := baur1.NewTaskLoader(repoCfg)
+	ExitOnErr(err)
+
+	repositoryDir := filepath.Dir(repoCfg.FilePath())
+	log.Debugf("found repository root: %q", repositoryDir)
+
+	var taskSpec string
+
+	if len(args) > 0 {
+		taskSpec = args[0]
+	} else {
+		taskSpec = "*"
+	}
+
+	tasks, err := taskLoader.Load(taskSpec)
+	ExitOnErr(err)
+
+	return repoCfg, tasks
 }

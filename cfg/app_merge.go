@@ -18,7 +18,11 @@ func (a *App) Merge(includedb *IncludeDB) error {
 		// TODO: use FieldError for errors
 	}
 
-	for _, task := range a.Tasks {
+	return a.Tasks.Merge(includedb)
+}
+
+func (t Tasks) Merge(includedb *IncludeDB) error {
+	for _, task := range t {
 		if err := task.Merge(includedb); err != nil {
 			return err
 		}
@@ -30,12 +34,21 @@ func (a *App) Merge(includedb *IncludeDB) error {
 func (t *Task) Merge(includeDB *IncludeDB) error {
 	for _, includeID := range t.Includes {
 		if include, exist := includeDB.Inputs[includeID]; exist {
+			if t.Input == nil {
+				t.Input = &Input{}
+			}
+
 			t.Input.Merge(include.Input)
 			continue
 		}
 
 		if include, exist := includeDB.Outputs[includeID]; exist {
+			if t.Output == nil {
+				t.Output = &Output{}
+			}
+
 			t.Output.Merge(include.Output)
+
 			continue
 		}
 

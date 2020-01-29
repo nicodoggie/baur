@@ -31,26 +31,28 @@ type OutputInclude struct {
 type TasksInclude struct {
 	ID    string `toml:"id" comment:"identifier for the include"`
 	Tasks Tasks  `toml:"Task" commented:"true"`
+
+	filepath string
 }
 
 // ExampleInclude returns an Include struct with exemplary values.
-func ExampleInclude() *Include {
+func ExampleInclude(id string) *Include {
 	return &Include{
 		Inputs: []*InputInclude{
 			{
-				ID:    "input.go",
+				ID:    id + "_input",
 				Input: exampleInput(),
 			},
 		},
 		Outputs: []*OutputInclude{
 			{
-				ID:     "output.go",
+				ID:     id + "_output",
 				Output: exampleOutput(),
 			},
 		},
 		Tasks: []*TasksInclude{
 			{
-				ID: "task.cbuild",
+				ID: id + "_task_cbuild",
 				Tasks: Tasks{
 					&Task{
 						Name:    "cbuild",
@@ -132,19 +134,22 @@ func (incl *Include) Validate() error {
 		}
 	}
 
-	for _, tasks := range incl.Tasks {
-		if err := tasks.Validate(); err != nil {
-			if tasks.ID != "" {
-				return NewFieldError(err, "Tasks", tasks.ID)
+	// TODO: we first have to merge the task itself with the includes that it references and then validate, otherwise validation will fail
+	/*
+		for _, tasks := range incl.Tasks {
+				if err := tasks.Validate(); err != nil {
+					if tasks.ID != "" {
+						return NewFieldError(err, "Tasks", tasks.ID)
+					}
+
+					return NewFieldError(err, "Tasks")
+				}
+
+			if len(incl.Inputs) == 0 && len(incl.Outputs) == 0 && len(incl.Tasks) == 0 {
+				return errors.New("the include does not contain any definition, either an Input, Output or Task must be defined")
 			}
-
-			return NewFieldError(err, "Tasks")
 		}
-
-		if len(incl.Inputs) == 0 && len(incl.Outputs) == 0 && len(incl.Tasks) == 0 {
-			return errors.New("the include does not contain any definition, either an Input, Output or Task must be defined")
-		}
-	}
+	*/
 
 	return nil
 }
@@ -186,7 +191,7 @@ func (out *OutputInclude) Validate() error {
 		)
 	}
 
-	if err := out.Validate(); err != nil {
+	if err := out.Output.Validate(); err != nil {
 		return NewFieldError(err, "Output")
 	}
 

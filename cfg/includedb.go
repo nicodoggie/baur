@@ -5,26 +5,31 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pkg/errors"
-
 	"github.com/simplesurance/baur/fs"
 )
 
+type Logger interface {
+	Debugf(format string, v ...interface{})
+}
+
 // IncludeDB loads and stores include config files
 type IncludeDB struct {
+	// TODO: make fields private? They seem not to be accessed
 	Inputs  map[string]*InputInclude
 	Outputs map[string]*OutputInclude
 	Tasks   map[string]*TasksInclude
+	logger  Logger
 }
 
-func LoadIncludes(includeDirectory ...string) (*IncludeDB, error) {
+func LoadIncludes(logger Logger, includeDirectory ...string) (*IncludeDB, error) {
 	db := IncludeDB{
 		Inputs:  map[string]*InputInclude{},
 		Outputs: map[string]*OutputInclude{},
 		Tasks:   map[string]*TasksInclude{},
+		logger:  logger,
 	}
 
-	err := db.load(includeDirectory...)
+	err := db.load(includeDirectory)
 	if err != nil {
 		return nil, err
 	}
@@ -35,20 +40,48 @@ func LoadIncludes(includeDirectory ...string) (*IncludeDB, error) {
 // as include config files and adds them to the database.
 // Directories are searched recursively and symlinks are followed.
 // Include directices in the loader files are not merged with their includes.
-func (db IncludeDB) load(includeDirectory ...string) error {
+func (db *IncludeDB) load(includeDirectories []string) error {
+	if err := db.loadIncludeFiles(includeDirectories); err != nil {
+		return err
+	}
+
+	// TODO: use FieldError for validation errors
+	for id, incl := range db.Inputs {
+		if err := incl.Validate(); err != nil {
+			return fmt.Errorf("validating input include %q failed: %w", id, err)
+		}
+	}
+
+	for id, incl := range db.Outputs {
+		if err := incl.Validate(); err != nil {
+			return fmt.Errorf("validating output include %q failed: %w", id, err)
+		}
+	}
+
+	for id, taskIncl := range db.Tasks {
+		if err := taskIncl.Tasks.Merge(db); err != nil {
+			return fmt.Errorf("merging task include %q with it's includes failed: %w", id, err)
+		}
+
+		if err := taskIncl.Validate(); err != nil {
+			return fmt.Errorf("validating task include %q failed: %w", id, err)
+		}
+	}
+
+	return nil
+}
+
+func (db *IncludeDB) loadIncludeFiles(includeDirectory []string) error {
 	walkFunc := func(path string, _ os.FileInfo) error {
 		if filepath.Ext(path) != ".toml" {
 			return nil
 		}
 
+		db.logger.Debugf("includedb: loading includes from file %q", path)
+
 		include, err := IncludeFromFile(path)
 		if err != nil {
-			return errors.Wrapf(err, "loading include file %q failed", path)
-		}
-
-		err = include.Validate()
-		if err != nil {
-			return errors.Wrapf(err, "validating include config %q failed", path)
+			return fmt.Errorf("loading include file %q failed: %w", path, err)
 		}
 
 		if err := db.add(include); err != nil {
@@ -68,21 +101,23 @@ func (db IncludeDB) load(includeDirectory ...string) error {
 	return nil
 }
 
-func (db IncludeDB) InputIncludeExist(id string) bool {
+func (db *IncludeDB) InputIncludeExist(id string) bool {
 	_, exist := db.Inputs[id]
 	return exist
 }
 
-func (db IncludeDB) OutputIncludeExist(id string) bool {
+func (db *IncludeDB) OutputIncludeExist(id string) bool {
 	_, exist := db.Outputs[id]
 	return exist
 }
 
-func (db IncludeDB) add(include *Include) error {
+func (db *IncludeDB) add(include *Include) error {
 	for _, input := range include.Inputs {
 		if db.InputIncludeExist(input.ID) || db.OutputIncludeExist(input.ID) {
 			return fmt.Errorf("multiple input/output includes with id '%s' are defined, include/output ids must be unique", input.ID)
 		}
+
+		db.logger.Debugf("includedb: loaded include %q", input.ID)
 
 		db.Inputs[input.ID] = input
 	}
@@ -92,6 +127,8 @@ func (db IncludeDB) add(include *Include) error {
 			return fmt.Errorf("multiple input/output includes with id '%s' are defined, include/output ids must be unique", output.ID)
 		}
 
+		db.logger.Debugf("includedb: loaded include %q", output.ID)
+
 		db.Outputs[output.ID] = output
 	}
 
@@ -99,6 +136,8 @@ func (db IncludeDB) add(include *Include) error {
 		if _, exist := db.Tasks[tasks.ID]; exist {
 			return fmt.Errorf("multiple tasks includes with id '%s' are defined, include ids must be unique", tasks.ID)
 		}
+
+		db.logger.Debugf("includedb: loaded include %q", tasks.ID)
 
 		db.Tasks[tasks.ID] = tasks
 	}

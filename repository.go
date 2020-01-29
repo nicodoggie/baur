@@ -10,6 +10,7 @@ import (
 	"github.com/simplesurance/baur/cfg"
 	"github.com/simplesurance/baur/fs"
 	"github.com/simplesurance/baur/git"
+	"github.com/simplesurance/baur/log"
 )
 
 // Repository represents an repository containing applications
@@ -73,7 +74,7 @@ func NewRepository(cfgPath string) (*Repository, error) {
 		}
 	*/
 
-	includeDB, err := cfg.LoadIncludes(fs.AbsPaths(r.path, repoCfg.IncludeDirs)...)
+	includeDB, err := cfg.LoadIncludes(log.StdLogger, fs.AbsPaths(r.path, repoCfg.IncludeDirs)...)
 	if err != nil {
 		return nil, errors.Wrap(err, "loading includes failed")
 	}

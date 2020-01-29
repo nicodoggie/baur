@@ -201,48 +201,46 @@ const (
 // WalkFiles recursively walks to the passed root directory, calling walkFunc for each found file.
 // When an error is encountered the function aborts and returns the error.
 func WalkFiles(root string, mode SymlinkMode, walkFilesFunc func(path string, info os.FileInfo) error) error {
-	var walkFunc filepath.WalkFunc
+	var walkFunc func(string) filepath.WalkFunc
 
-	walkFunc = func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return errors.Wrap(err, path)
-		}
+	walkFunc = func(root string) filepath.WalkFunc {
+		return func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return errors.Wrap(err, path)
+			}
 
-		if path == root {
+			if path == root {
+				return nil
+			}
+
+			if info.Mode()&os.ModeSymlink != 0 {
+				switch mode {
+				case SymlinksFollow:
+					path, err = filepath.EvalSymlinks(path)
+					if err != nil {
+						return errors.Wrap(err, "resolving symlink failed")
+					}
+
+					info, err = os.Stat(path)
+					if err != nil {
+						return errors.Wrapf(err, "stat %q failed", path)
+					}
+
+				case SymlinksAreErrors:
+					return fmt.Errorf("%q is a symlink", path)
+				}
+			}
+
+			err = walkFilesFunc(path, info)
+			if err != nil {
+				return err
+			}
+
 			return nil
 		}
-
-		if info.Mode()&os.ModeSymlink != 0 {
-			switch mode {
-			case SymlinksFollow:
-				path, err = filepath.EvalSymlinks(path)
-				if err != nil {
-					return errors.Wrap(err, "resolving symlink failed")
-				}
-
-				info, err = os.Stat(path)
-				if err != nil {
-					return errors.Wrapf(err, "stat %q failed", path)
-				}
-
-			case SymlinksAreErrors:
-				return fmt.Errorf("%q is a symlink", path)
-			}
-		}
-
-		if info.IsDir() {
-			return filepath.Walk(path, walkFunc)
-		}
-
-		err = walkFilesFunc(path, info)
-		if err != nil {
-			return err
-		}
-
-		return nil
 	}
 
-	return filepath.Walk(root, walkFunc)
+	return filepath.Walk(root, walkFunc(root))
 }
 
 // AbsPaths prepends to all paths in relPaths the passed rootPath.

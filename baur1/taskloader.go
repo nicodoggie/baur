@@ -23,7 +23,11 @@ type TaskLoader struct {
 func NewTaskLoader(repoCfg *cfg.Repository) (*TaskLoader, error) {
 	repositoryRootDir := filepath.Dir(repoCfg.FilePath())
 
-	includeDB, err := cfg.LoadIncludes(fs.AbsPaths(repositoryRootDir, repoCfg.IncludeDirs)...)
+	if len(repoCfg.IncludeDirs) == 0 {
+		log.StdLogger.Debugf("taskloader: no include directories specified in repository config")
+	}
+
+	includeDB, err := cfg.LoadIncludes(log.StdLogger, fs.AbsPaths(repositoryRootDir, repoCfg.IncludeDirs)...)
 	if err != nil {
 		return nil, err
 	}
@@ -50,14 +54,24 @@ func NewTaskLoader(repoCfg *cfg.Repository) (*TaskLoader, error) {
 // - The '*' wildcard is supported for <APP-NAME> and <TASK-NAME>. '*' will
 //   match all apps or tasks.
 func (t *TaskLoader) Load(specifier string) ([]*Task, error) {
+	if specifier == "*" || specifier == "*.*" {
+		t.logger.Debugf("taskloader: loading all tasks")
+		return t.All()
+	}
+
 	if cfgPath, isAppDirectory := IsAppDirectory(specifier); isAppDirectory {
 		t.logger.Debugf("taskloader: loading app from path %q", cfgPath)
 
-		return t.Path(path.Join(specifier, cfgPath))
+		tasks, err := t.Path(cfgPath)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", cfgPath, err)
+		}
+
+		return tasks, nil
 	}
 
 	if !strings.Contains(specifier, ".") {
-		t.logger.Debugf("taskloader: loading tasks by app name %q", specifier)
+		t.logger.Debugf("taskloader: loading tasks of app %q", specifier)
 
 		return t.AppName(specifier)
 	}
@@ -78,13 +92,9 @@ func (t *TaskLoader) Load(specifier string) ([]*Task, error) {
 		return nil, errors.New("invalid specifier, task part is empty")
 	}
 
-	if appSpec == "*" && taskSpec == "*" {
-		return t.All()
-	}
-
 	if appSpec != "*" {
 		if taskSpec == "*" {
-			t.logger.Debugf("taskloader: loading tasks by app name %q", appSpec)
+			t.logger.Debugf("taskloader: loading tasks of app %q", appSpec)
 
 			return t.AppName(appSpec)
 		}
@@ -110,7 +120,7 @@ func (t *TaskLoader) All() ([]*Task, error) {
 	for _, path := range t.appConfigPaths {
 		tasks, err := t.Path(path)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%s: %w", path, err)
 		}
 
 		result = append(result, tasks...)
@@ -144,6 +154,10 @@ func (t *TaskLoader) fromAppCfg(appCfg *cfg.App) ([]*Task, error) {
 		return nil, fmt.Errorf("resolving variables in config failed: %w", err)
 	}
 
+	if err = appCfg.Validate(); err != nil {
+		return nil, fmt.Errorf("validation failed: %w", err)
+	}
+
 	result := make([]*Task, 0, len(appCfg.Tasks))
 
 	appDirectory := filepath.Dir(appCfg.FilePath())
@@ -169,7 +183,7 @@ func (t *TaskLoader) Task(name string) ([]*Task, error) {
 	var result []*Task
 
 	for _, task := range tasks {
-		if task.Name == "name" {
+		if task.Name == name {
 			result = append(result, task)
 		}
 	}
@@ -185,14 +199,19 @@ func (t *TaskLoader) AppName(name string) ([]*Task, error) {
 	for _, path := range t.appConfigPaths {
 		appCfg, err := cfg.AppFromFile(path)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%s: %w", path, err)
 		}
 
 		if appCfg.Name != name {
 			continue
 		}
 
-		return t.fromAppCfg(appCfg)
+		tasks, err := t.fromAppCfg(appCfg)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", path, err)
+		}
+
+		return tasks, nil
 	}
 
 	return nil, errors.New("app not found")

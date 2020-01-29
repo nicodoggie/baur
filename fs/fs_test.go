@@ -56,3 +56,5 @@ func TestFileReadLine(t *testing.T) {
 	}
 
 }
+
+//TODO: add test for WalkFiles
