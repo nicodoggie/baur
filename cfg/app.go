@@ -93,6 +93,27 @@ type DockerImageOutput struct {
 	RegistryUpload DockerImageRegistryUpload `comment:"Registry repository the image is uploaded to"`
 }
 
+type InputDef interface {
+	FileInputs() *FileInputs
+	GitFileInputs() *GitFileInputs
+	GolangSourcesInputs() *GolangSources
+}
+
+type OutputDef interface {
+	DockerImageOutputs() []*DockerImageOutput
+	FileOutputs() []*FileOutput
+}
+
+type TaskDef interface {
+	GetCommand() string
+	GetIncludes() []string
+	GetInput() *Input
+	GetName() string
+	GetOutput() *Output
+	SetInput(*Input)
+	SetOutput(*Output)
+}
+
 func exampleInput() *Input {
 	return &Input{
 		Files: FileInputs{
@@ -182,6 +203,14 @@ func (a *App) FilePath() string {
 	return a.filepath
 }
 
+// TODO: make FileInputs, GitFileInputs, GolangSources pointers and get rid of this function?
+func inputsIsEmpty(in InputDef) bool {
+	return len(in.FileInputs().Paths) == 0 &&
+		len(in.GitFileInputs().Paths) == 0 &&
+		len(in.GolangSourcesInputs().Paths) == 0 &&
+		len(in.GolangSourcesInputs().Environment) == 0
+}
+
 // IsEmpty returns true if FileCopy is empty
 func (f *FileCopy) IsEmpty() bool {
 	return len(f.Path) == 0
@@ -195,4 +224,51 @@ func (s *S3Upload) IsEmpty() bool {
 //IsEmpty returns true if the struct is empty
 func (d *DockerImageRegistryUpload) IsEmpty() bool {
 	return len(d.Repository) == 0 && len(d.Tag) == 0
+}
+
+func (in *Input) FileInputs() *FileInputs {
+	return &in.Files
+}
+
+func (in *Input) GitFileInputs() *GitFileInputs {
+	return &in.GitFiles
+}
+
+func (in *Input) GolangSourcesInputs() *GolangSources {
+	return &in.GolangSources
+}
+
+func (out *Output) DockerImageOutputs() []*DockerImageOutput {
+	return out.DockerImage
+}
+
+func (out *Output) FileOutputs() []*FileOutput {
+	return out.File
+}
+
+func (t *Task) GetCommand() string {
+	return t.Command
+}
+func (t *Task) GetName() string {
+	return t.Name
+}
+
+func (t *Task) GetIncludes() []string {
+	return t.Includes
+}
+
+func (t *Task) GetInput() *Input {
+	return t.Input
+}
+
+func (t *Task) GetOutput() *Output {
+	return t.Output
+}
+
+func (t *Task) SetOutput(o *Output) {
+	t.Output = o
+}
+
+func (t *Task) SetInput(in *Input) {
+	t.Input = in
 }

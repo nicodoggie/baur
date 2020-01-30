@@ -11,7 +11,13 @@ func (a *App) Merge(includedb *IncludeDB) error {
 			return fmt.Errorf("could not find include with id '%s'", includeID)
 		}
 
-		a.Tasks = append(a.Tasks, include.Tasks...)
+		a.Tasks = append(a.Tasks, &Task{
+			Name:     include.Name,
+			Command:  include.Command,
+			Includes: include.Includes,
+			Input:    include.Input,
+			Output:   include.Output,
+		})
 
 		// TODO: store the repository relative cfg path in the include somehow
 		//task.Input.Files.Paths = append(task.Input.Files.Paths, include.RelCfgPath)
@@ -23,7 +29,7 @@ func (a *App) Merge(includedb *IncludeDB) error {
 
 func (t Tasks) Merge(includedb *IncludeDB) error {
 	for _, task := range t {
-		if err := task.Merge(includedb); err != nil {
+		if err := TaskMerge(task, includedb); err != nil {
 			return err
 		}
 	}
@@ -31,23 +37,26 @@ func (t Tasks) Merge(includedb *IncludeDB) error {
 	return nil
 }
 
-func (t *Task) Merge(includeDB *IncludeDB) error {
-	for _, includeID := range t.Includes {
+func TaskMerge(t TaskDef, includeDB *IncludeDB) error {
+	for _, includeID := range t.GetIncludes() {
 		if include, exist := includeDB.Inputs[includeID]; exist {
-			if t.Input == nil {
-				t.Input = &Input{}
+			if t.GetInput() == nil {
+				t.SetInput(&Input{})
 			}
 
-			t.Input.Merge(include.Input)
+			t.GetInput().Files.Merge(&include.Files)
+			t.GetInput().GitFiles.Merge(&include.GitFiles)
+			t.GetInput().GolangSources.Merge(&include.GolangSources)
+
 			continue
 		}
 
 		if include, exist := includeDB.Outputs[includeID]; exist {
-			if t.Output == nil {
-				t.Output = &Output{}
+			if t.GetOutput() == nil {
+				t.SetOutput(&Output{})
 			}
 
-			t.Output.Merge(include.Output)
+			t.GetOutput().Merge(include)
 
 			continue
 		}
@@ -60,10 +69,10 @@ func (t *Task) Merge(includeDB *IncludeDB) error {
 }
 
 // Merge merges the Input with another one.
-func (i *Input) Merge(other *Input) {
-	i.Files.Merge(&other.Files)
-	i.GitFiles.Merge(&other.GitFiles)
-	i.GolangSources.Merge(&other.GolangSources)
+func (i *Input) Merge(other InputDef) {
+	i.Files.Merge(other.FileInputs())
+	i.GitFiles.Merge(other.GitFileInputs())
+	i.GolangSources.Merge(other.GolangSourcesInputs())
 }
 
 // Merge merges the two GolangSources structs
@@ -73,9 +82,9 @@ func (g *GolangSources) Merge(other *GolangSources) {
 }
 
 // Merge merges the two Output structs
-func (o *Output) Merge(other *Output) {
-	o.DockerImage = append(o.DockerImage, other.DockerImage...)
-	o.File = append(o.File, other.File...)
+func (o *Output) Merge(other OutputDef) {
+	o.DockerImage = append(o.DockerImage, other.DockerImageOutputs()...)
+	o.File = append(o.File, other.FileOutputs()...)
 }
 
 // Merge merges 2 FileInputs structs

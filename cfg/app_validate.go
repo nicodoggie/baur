@@ -41,7 +41,7 @@ func (tasks Tasks) Validate() error {
 		}
 		duplMap[task.Name] = struct{}{}
 
-		err := task.Validate()
+		err := TaskValidate(task)
 		if err != nil {
 			return NewFieldError(
 				err,
@@ -53,48 +53,48 @@ func (tasks Tasks) Validate() error {
 	return nil
 }
 
-// Validate validates the task section
-func (t *Task) Validate() error {
-	if len(t.Command) == 0 {
+// TaskValidate validates the task section
+func TaskValidate(t TaskDef) error {
+	if len(t.GetCommand()) == 0 {
 		return NewFieldError(
 			errors.New("can not be empty"),
 			"command",
 		)
 	}
 
-	if strings.Contains(t.Name, ".") {
+	if strings.Contains(t.GetName(), ".") {
 		return NewFieldError(errors.New("dots are not allowed in task names"), "name")
 	}
 
-	if t.Input == nil {
+	if t.GetInput() == nil {
 		return NewFieldError(
 			errors.New("section is empty"),
 			"Input",
 		)
 	}
 
-	if err := t.Input.Validate(); err != nil {
+	if err := InputValidate(t.GetInput()); err != nil {
 		return NewFieldError(err, "Input")
 	}
 
-	if t.Output == nil {
+	if t.GetOutput() == nil {
 		return nil
 	}
 
-	if err := t.Output.Validate(); err != nil {
+	if err := OutputValidate(t.GetOutput()); err != nil {
 		return NewFieldError(err, "Output")
 	}
 
 	return nil
 }
 
-// Validate validates the Input section
-func (i *Input) Validate() error {
-	if err := i.Files.Validate(); err != nil {
+// InputValidate validates the Input section
+func InputValidate(i InputDef) error {
+	if err := i.FileInputs().Validate(); err != nil {
 		return NewFieldError(err, "Files")
 	}
 
-	if err := i.GolangSources.Validate(); err != nil {
+	if err := i.GolangSourcesInputs().Validate(); err != nil {
 		return NewFieldError(err, "GolangSources")
 	}
 
@@ -125,14 +125,14 @@ func (g *GolangSources) Validate() error {
 }
 
 // Validate validates the Output section
-func (o *Output) Validate() error {
-	for _, f := range o.File {
+func OutputValidate(o OutputDef) error {
+	for _, f := range o.FileOutputs() {
 		if err := f.Validate(); err != nil {
 			return NewFieldError(err, "File")
 		}
 	}
 
-	for _, d := range o.DockerImage {
+	for _, d := range o.DockerImageOutputs() {
 		if err := d.Validate(); err != nil {
 			return NewFieldError(err, "DockerImage")
 		}

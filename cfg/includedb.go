@@ -17,7 +17,7 @@ type IncludeDB struct {
 	// TODO: make fields private? They seem not to be accessed
 	Inputs  map[string]*InputInclude
 	Outputs map[string]*OutputInclude
-	Tasks   map[string]*TasksInclude
+	Tasks   map[string]*TaskInclude
 	logger  Logger
 }
 
@@ -25,7 +25,7 @@ func LoadIncludes(logger Logger, includeDirectory ...string) (*IncludeDB, error)
 	db := IncludeDB{
 		Inputs:  map[string]*InputInclude{},
 		Outputs: map[string]*OutputInclude{},
-		Tasks:   map[string]*TasksInclude{},
+		Tasks:   map[string]*TaskInclude{},
 		logger:  logger,
 	}
 
@@ -59,7 +59,7 @@ func (db *IncludeDB) load(includeDirectories []string) error {
 	}
 
 	for id, taskIncl := range db.Tasks {
-		if err := taskIncl.Tasks.Merge(db); err != nil {
+		if err := TaskMerge(taskIncl, db); err != nil {
 			return fmt.Errorf("merging task include %q with it's includes failed: %w", id, err)
 		}
 
